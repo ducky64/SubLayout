@@ -7,11 +7,11 @@ import wx
 
 class BoardUtils():
     @classmethod
-    def calculate_path_sheetfile_names(cls, board: pcbnew.BOARD) -> Dict[Tuple[str, ...], Tuple[str, str]]:
+    def calculate_path_sheetfile_names(cls, footprints: List[pcbnew.FOOTPRINT]) -> Dict[Tuple[str, ...], Tuple[str, str]]:
         """Iterates through footprints in the board to try to determine the sheetfile and sheetname
         associated with a path."""
         path_sheetfile_names = {}
-        for fp in board.GetFootprints():  # type: pcbnew.FOOTPRINT
+        for fp in footprints:
             fp_path = fp.GetPath()  # type: pcbnew.KIID_PATH
             fp_path_comps = tuple(cast(str, fp_path.AsString()).strip('/').split('/'))
             if len(fp_path_comps) < 2:  # ignore root components
@@ -59,7 +59,15 @@ class SubLayout(pcbnew.ActionPlugin):
         editor = wx.FindWindowByName("PcbFrame")
         board = pcbnew.GetBoard()  # type: pcbnew.BOARD
 
-        path_sheetfile_names = BoardUtils.calculate_path_sheetfile_names(board)
-        wx.MessageBox(f"Hello {path_sheetfile_names}")
-        # self.frame = SubLayoutFrame(editor)
-        # self.frame.Show()
+        footprints = board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
+        path_sheetfile_names = BoardUtils.calculate_path_sheetfile_names(footprints)
+        footprints = [fp for fp in footprints if fp.IsSelected()]
+        if len(footprints) < 1:
+            wx.MessageBox("Must select anchor footprint(s).", "Error", wx.OK | wx.ICON_ERROR)
+            return
+
+        # calculate the possible hierarchy sheets for selected footprints by finding the common prefixes
+        
+
+        self.frame = SubLayoutFrame(editor)
+        self.frame.Show()
