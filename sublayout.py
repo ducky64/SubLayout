@@ -1,6 +1,30 @@
+from typing import Dict, List, Tuple, cast
+
 import pcbnew
 import os
 import wx
+
+
+class BoardUtils():
+    @classmethod
+    def calculate_path_sheetfile_names(cls, board: pcbnew.BOARD) -> Dict[Tuple[str, ...], Tuple[str, str]]:
+        """Iterates through footprints in the board to try to determine the sheetfile and sheetname
+        associated with a path."""
+        path_sheetfile_names = {}
+        for fp in board.GetFootprints():  # type: pcbnew.FOOTPRINT
+            fp_path = fp.GetPath()  # type: pcbnew.KIID_PATH
+            fp_path_comps = tuple(cast(str, fp_path.AsString()).strip('/').split('/'))
+            if len(fp_path_comps) < 2:  # ignore root components
+                continue
+            fp_path_comps = fp_path_comps[:-1]  # remove the last component (leaf footprint)
+            sheetfile_name = (cast(str, fp.GetSheetfile()), cast(str, fp.GetSheetname()))
+            if not sheetfile_name[0] or not sheetfile_name[1]:
+                continue
+            if fp_path_comps in path_sheetfile_names:
+                assert path_sheetfile_names[fp_path_comps] == sheetfile_name
+            else:
+                path_sheetfile_names[fp_path_comps] = sheetfile_name
+        return path_sheetfile_names
 
 
 class SubLayoutFrame(wx.Frame):
@@ -35,17 +59,7 @@ class SubLayout(pcbnew.ActionPlugin):
         editor = wx.FindWindowByName("PcbFrame")
         board = pcbnew.GetBoard()  # type: pcbnew.BOARD
 
-        msg = ""
-        for fp in board.GetFootprints():  # type: pcbnew.FOOTPRINT
-            fp.IsSelected()
-            fp_path = fp.GetPath()  # type: pcbnew.KIID_PATH
-            fp.GetFieldsText()
-
-            fp.GetSheetfile()  # name of containing hierarchical block file
-            fp.GetSheetname()  # name of containing hierarchical block instance
-            msg += f"{fp.GetReference()} {fp.GetFPIDAsString()} {fp_path.AsString()}  {fp.GetSheetfile()}  {fp.GetSheetname()}\n"
-
-        wx.MessageBox(f"Hello {msg}")
-        self.frame = SubLayoutFrame(editor)
-        self.frame.Show()
-
+        path_sheetfile_names = BoardUtils.calculate_path_sheetfile_names(board)
+        wx.MessageBox(f"Hello {path_sheetfile_names}")
+        # self.frame = SubLayoutFrame(editor)
+        # self.frame.Show()
