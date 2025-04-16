@@ -7,13 +7,29 @@ import wx
 
 class BoardUtils():
     @classmethod
+    def highlight_footprint(cls, footprint: pcbnew.FOOTPRINT, bright: bool = True) -> None:
+        """Highlight a footprint on the board."""
+        if bright:
+            footprint.SetBrightened()
+            for pad in footprint.Pads():  # type: pcbnew.PAD
+                pad.SetBrightened()
+        else:
+            footprint.ClearBrightened()
+            for pad in footprint.Pads():  # type: pcbnew.PAD
+                pad.ClearBrightened()
+
+    @classmethod
+    def footprint_path(cls, footprint: pcbnew.FOOTPRINT) -> Tuple[str, ...]:
+        fp_path = footprint.GetPath()  # type: pcbnew.KIID_PATH
+        return tuple(cast(str, fp_path.AsString()).strip('/').split('/'))
+
+    @classmethod
     def calculate_path_sheetfile_names(cls, footprints: List[pcbnew.FOOTPRINT]) -> Dict[Tuple[str, ...], Tuple[str, str]]:
         """Iterates through footprints in the board to try to determine the sheetfile and sheetname
         associated with a path."""
         path_sheetfile_names = {}
         for fp in footprints:
-            fp_path = fp.GetPath()  # type: pcbnew.KIID_PATH
-            fp_path_comps = tuple(cast(str, fp_path.AsString()).strip('/').split('/'))
+            fp_path_comps = cls.footprint_path(fp)
             if len(fp_path_comps) < 2:  # ignore root components
                 continue
             fp_path_comps = fp_path_comps[:-1]  # remove the last component (leaf footprint)
@@ -33,18 +49,57 @@ class SubLayoutFrame(wx.Frame):
         panel = wx.Panel(self)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        self.text_ctrl = wx.TextCtrl(panel, style=wx.TE_MULTILINE)
-        sizer.Add(self.text_ctrl, 1, wx.EXPAND | wx.ALL, 5)
+        self._status = wx.StaticText(panel, label="")
+        sizer.Add(self._status, 0, wx.ALL)
 
-        self.button = wx.Button(panel, label="Close")
-        sizer.Add(self.button, 0, wx.ALIGN_CENTER | wx.ALL, 5)
+        self._hierarchy_list = wx.ListBox(panel, style=wx.LB_SINGLE)
+        sizer.Add(self._hierarchy_list, 1, wx.EXPAND | wx.ALL)
 
         panel.SetSizer(sizer)
+        self._hierarchy_list.Bind(wx.EVT_LISTBOX, self._on_select_hierarchy)
 
-        self.Bind(wx.EVT_BUTTON, self.on_close_button_click, self.button)
+        self._populate_hierarchy()
 
-    def on_close_button_click(self, event):
-        self.Close()
+    def _populate_hierarchy(self) -> None:
+        self._hierarchy_list.Clear()
+
+        board = pcbnew.GetBoard()  # type: pcbnew.BOARD
+        footprints = board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
+        path_sheetfile_names = BoardUtils.calculate_path_sheetfile_names(footprints)
+        footprints = [fp for fp in footprints if fp.IsSelected()]
+        if len(footprints) < 1:
+            self._status.SetLabel("Must select anchor footprint(s).")
+            return
+
+        # if one footprint is selected, also allow export mode
+        if len(footprints) == 1:
+            self._status.SetLabel("Select hierarchy level")
+            path = BoardUtils.footprint_path(footprints[0])
+            for i in range(len(path) - 1):  # ignore leaf path
+                path_comps = path[:i+1]
+                path_comps_short = [path_elt[-8:] for path_elt in path_comps]
+                if path_comps in path_sheetfile_names:
+                    sheetfile, sheetname = path_sheetfile_names[path_comps]
+                    label = f"{'/'.join(path_comps_short)}: {sheetname} ({sheetfile})"
+                else:
+                    label = f"{'/'.join(path_comps_short)}: <not found>"
+                self._hierarchy_list.Append(label, path_comps)
+
+        else:
+            self._status.SetLabel("TODO support multiple selected footprints")
+            # TODO allow restore of multiple footprints by finding common sheetfiles with differing sheetnames
+
+    def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
+        selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
+        board = pcbnew.GetBoard()  # type: pcbnew.BOARD
+        footprints = board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
+
+        for footprint in footprints:
+            if BoardUtils.footprint_path(footprint)[:len(selected_path_comps)] == selected_path_comps:
+                BoardUtils.highlight_footprint(footprint, bright=True)
+            else:
+                BoardUtils.highlight_footprint(footprint, bright=False)
+        pcbnew.Refresh()
 
 
 class SubLayout(pcbnew.ActionPlugin):
@@ -57,17 +112,5 @@ class SubLayout(pcbnew.ActionPlugin):
 
     def Run(self):
         editor = wx.FindWindowByName("PcbFrame")
-        board = pcbnew.GetBoard()  # type: pcbnew.BOARD
-
-        footprints = board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
-        path_sheetfile_names = BoardUtils.calculate_path_sheetfile_names(footprints)
-        footprints = [fp for fp in footprints if fp.IsSelected()]
-        if len(footprints) < 1:
-            wx.MessageBox("Must select anchor footprint(s).", "Error", wx.OK | wx.ICON_ERROR)
-            return
-
-        # calculate the possible hierarchy sheets for selected footprints by finding the common prefixes
-        
-
         self.frame = SubLayoutFrame(editor)
         self.frame.Show()
