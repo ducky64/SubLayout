@@ -24,6 +24,12 @@ class BoardUtils():
         return tuple(cast(str, fp_path.AsString()).strip('/').split('/'))
 
     @classmethod
+    def footprint_path_startswith(cls, footprint: pcbnew.FOOTPRINT, path_prefix: Tuple[str, ...]) -> bool:
+        """Returns true if the footprint path starts with the given prefix (is part of the path_prefix hierarchy)"""
+        fp_path = cls.footprint_path(footprint)
+        return fp_path[:len(path_prefix)] == path_prefix
+
+    @classmethod
     def calculate_path_sheetfile_names(cls, footprints: List[pcbnew.FOOTPRINT]) -> Dict[Tuple[str, ...], Tuple[str, str]]:
         """Iterates through footprints in the board to try to determine the sheetfile and sheetname
         associated with a path."""
@@ -95,7 +101,7 @@ class SubLayoutFrame(wx.Frame):
         footprints = board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
 
         for footprint in footprints:
-            if BoardUtils.footprint_path(footprint)[:len(selected_path_comps)] == selected_path_comps:
+            if BoardUtils.footprint_path_startswith(footprint, selected_path_comps):
                 BoardUtils.highlight_footprint(footprint, bright=True)
             else:
                 BoardUtils.highlight_footprint(footprint, bright=False)
