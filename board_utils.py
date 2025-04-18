@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Tuple, cast
+from typing import Tuple, cast
 
 import pcbnew
 

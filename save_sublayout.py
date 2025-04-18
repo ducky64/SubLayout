@@ -14,13 +14,23 @@ class SaveSublayout():
         self._filter_board()
 
     def _filter_board(self) -> None:
-        """Filters the footprints on the board to only include those in the given hierarchy path prefix."""
+        """Filters the footprints on the board to only include those in the given hierarchy path prefix,
+        and tracks that are part of nets between the footprints in the hierarchy."""
         footprints = self.board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
+        include_netcodes = set()  # nets that are part of the hierarchy
+        exclude_netcodes = set()  # nets that are part of footprints not part of the hierarchy
         for footprint in footprints:
             if not BoardUtils.footprint_path_startswith(footprint, self.path_prefix):
+                for pad in footprint.Pads():  # type: pcbnew.PAD
+                    exclude_netcodes.add(pad.GetNetCode())
                 self.board.Delete(footprint)
+            else:
+                for pad in footprint.Pads():  # type: pcbnew.PAD
+                    include_netcodes.add(pad.GetNetCode())
         for track in self.board.GetTracks():  # type: List[pcbnew.PCB_TRACK]
-            self.board.Delete(track)
+            include_netcodes = include_netcodes.difference(exclude_netcodes)
+            if track.GetNetCode() not in include_netcodes:
+                self.board.Delete(track)
         for drawing in self.board.GetDrawings():  # type: List[pcbnew.DRAWINGS]
             self.board.Delete(drawing)
         for zone_id in range(self.board.GetAreaCount()):
