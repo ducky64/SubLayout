@@ -25,6 +25,7 @@ class SaveTestCase(unittest.TestCase):
         # test that sub-hierarchy items are included
         board = SaveSublayout(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1]
                               ).create_sublayout()
+        board.Save('test_usb.kicad_pcb')
         footprint_refs = {footprint.GetReference() for footprint in board.GetFootprints()}
         self.assertEqual(footprint_refs, {'J1', 'R1', 'R2'})
 

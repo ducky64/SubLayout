@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple, cast
+from typing import List, Dict, Tuple, cast, Optional
 
 import pcbnew
 
@@ -29,7 +29,7 @@ class HierarchyNamer:
     def __init__(self, board: pcbnew.BOARD) -> None:
         self._sheetfile_names = self._build_sheetfile_names(board.Footprints())
 
-    def name_path(self, path: Tuple[str, ...]) -> Tuple[str, ...]:
+    def name_path(self, path: Tuple[str, ...], footprint_ref: Optional[str] = None) -> Tuple[str, ...]:
         """Infers a structured name for the given path"""
         names = []
         for i in range(1, len(path) + 1):
@@ -37,9 +37,15 @@ class HierarchyNamer:
             if path_comps in self._sheetfile_names:
                 sheetfile, sheetname = self._sheetfile_names[path_comps]
                 names.append(sheetname)
+            elif i == len(path) and footprint_ref is not None:
+                names.append(footprint_ref)  # special case for leaf level, which doesn't have a sheetname
             else:
                 names.append('?')
         return tuple(names)
+
+    def name_footprint(self, footprint: pcbnew.FOOTPRINT) -> str:
+        """Returns a structured name for the footprint"""
+        return self.name_path(BoardUtils.footprint_path(footprint), footprint.GetReference())
 
     def containing_name(self, footprint: pcbnew.FOOTPRINT) -> str:
         """Returns the name of the sheet containing the footprint"""
