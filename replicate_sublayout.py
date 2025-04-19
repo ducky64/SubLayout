@@ -43,7 +43,7 @@ class ReplicateSublayout():
         for footprint in source_footprints:
             if BoardUtils.footprint_path_startswith(footprint, source_prefix):
                 footprint_path = BoardUtils.footprint_path(footprint)
-                footprint_postfix = footprint_path[len(footprint_path) - len(target_postfix):]
+                footprint_postfix = footprint_path[len(source_prefix):]
                 assert footprint_postfix not in source_footprint_by_postfix, \
                     f'duplicate footprint in hierarchy in source {footprint.GetReference()}'
                 source_footprint_by_postfix[footprint_postfix] = footprint
