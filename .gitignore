@@ -177,5 +177,6 @@ cython_debug/
 fp-info-cache
 *.kicad_prl
 *.kicad_pro
+*.kicad_pcb.lck
 *.net
 test_output*.kicad_pcb
