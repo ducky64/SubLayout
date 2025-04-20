@@ -1144,4 +1144,25 @@
 		(net 6)
 		(uuid "e49cae2c-8e2b-4de1-a1a4-971c6210d468")
 	)
+	(zone
+		(net 4)
+		(net_name "usb.pwr")
+		(layer "F.Cu")
+		(uuid "0f57711d-fd68-47c8-a948-a3bc040bd073")
+		(hatch edge 0.5)
+		(connect_pads
+			(clearance 0.5)
+		)
+		(min_thickness 0.25)
+		(filled_areas_thickness no)
+		(fill
+			(thermal_gap 0.5)
+			(thermal_bridge_width 0.5)
+		)
+		(polygon
+			(pts
+				(xy 142 45) (xy 139.5 45) (xy 139.5 51) (xy 142 51)
+			)
+		)
+	)
 )

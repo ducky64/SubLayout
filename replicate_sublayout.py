@@ -120,3 +120,20 @@ class ReplicateSublayout():
             target_track.SetEnd(self.compute_target_position(source_anchor_footprint,
                                                              track.GetEnd(),
                                                              target_anchor_footprint))
+            # TODO update netcodes
+
+    def replicate_zones(self, target_board: pcbnew.BOARD,
+                        source_anchor_footprint: pcbnew.FOOTPRINT,
+                        target_anchor_footprint: pcbnew.FOOTPRINT) -> None:
+        """Replicates the zones from the source board to the target board."""
+        for zone_id in range(self._src_board.GetAreaCount()):
+            zone = self._src_board.GetArea(zone_id)  # type: pcbnew.ZONE
+            target_zone = zone.Duplicate()
+            target_board.Add(target_zone)
+            for corner_id in range(target_zone.GetNumCorners()):
+                target_zone.SetCornerPosition(
+                    corner_id,
+                    self.compute_target_position(source_anchor_footprint,
+                                                 zone.GetCornerPosition(corner_id),
+                                                 target_anchor_footprint))
+            # TODO update netcodes
