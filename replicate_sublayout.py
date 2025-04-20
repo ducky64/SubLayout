@@ -53,7 +53,7 @@ class ReplicateSublayout():
             target_postfix = BoardUtils.footprint_path(footprint)[len(target_path_prefix):]
             if target_postfix in source_footprint_by_postfix:
                 source_footprint = source_footprint_by_postfix[target_postfix]
-                if footprint is target_anchor:  # anchor footprint, add to correspondences first
+                if footprint.GetReference() == target_anchor.GetReference():  # anchor footprint, add to correspondences first
                     correspondences.insert(0, (source_footprint, footprint))
                 else:
                     correspondences.append((source_footprint, footprint))
@@ -62,32 +62,34 @@ class ReplicateSublayout():
         return correspondences, extra_source_footprints, extra_target_footprints
 
     @classmethod
+    def compute_target_position(cls, source_anchor_footprint: pcbnew.FOOTPRINT, source_pos: pcbnew.VECTOR2I,
+                                target_anchor_footprint: pcbnew.FOOTPRINT) -> pcbnew.VECTOR2I:
+        dx = source_pos[0] - source_anchor_footprint.GetPosition()[0]
+        # kicad uses computer graphics coordinates, which has Y increasing downwards, opposite of math conventions
+        dy = -source_pos[1] + source_anchor_footprint.GetPosition()[1]
+        dist = math.sqrt(dx ** 2 + dy ** 2)
+        # angle in radians from anchor's zero orientation
+        dist_angle = math.atan2(dy, dx)
+        rel_dist_angle = dist_angle - source_anchor_footprint.GetOrientation().AsRadians()
+        target_angle = target_anchor_footprint.GetOrientation().AsRadians() + rel_dist_angle
+        return pcbnew.VECTOR2I(
+            target_anchor_footprint.GetPosition()[0] + round(math.cos(target_angle) * dist),
+            target_anchor_footprint.GetPosition()[1] - round(math.sin(target_angle) * dist)
+        )
+
+    @classmethod
     def compute_new_layout(cls, source_anchor_footprint: pcbnew.FOOTPRINT, source_footprint: pcbnew.FOOTPRINT,
-                           target_anchor_footprint: pcbnew.FOOTPRINT) -> Tuple[bool, int, int, float]:
+                           target_anchor_footprint: pcbnew.FOOTPRINT) -> Tuple[bool, pcbnew.VECTOR2I, float]:
         """Returns the target position for the source footprint, given the source and target anchors.
         Position is returned as (flipped, x, y, rot), with x, y in KiCad units in target absolute board space,
         and rot in radians."""
-        dx = source_footprint.GetPosition()[0] - source_anchor_footprint.GetPosition()[0]
-        dy = source_footprint.GetPosition()[1] - source_anchor_footprint.GetPosition()[1]
-        dist = math.sqrt(dx ** 2 + dy ** 2)
-        # angle in radians from anchor's zero orientation
-        if dx != 0:
-            dist_angle = math.atan(dy / dx)
-        else:
-            if dy > 0:
-                dist_angle = math.pi / 2
-            else:
-                dist_angle = -math.pi / 2
-        rel_dist_angle = dist_angle - source_anchor_footprint.GetOrientation().AsRadians()
-        target_angle = target_anchor_footprint.GetOrientation().AsRadians() + rel_dist_angle
         rel_flipped = source_footprint.GetSide() != source_anchor_footprint.GetSide()
         flipped = (target_anchor_footprint.GetSide() == 0 and rel_flipped) or \
                   (target_anchor_footprint.GetSide() != 0 and not rel_flipped)
         rel_orientation = source_footprint.GetOrientation().AsRadians() - source_anchor_footprint.GetOrientation().AsRadians()
 
         return (flipped,
-                target_anchor_footprint.GetPosition()[0] + round(math.cos(target_angle) * dist),
-                target_anchor_footprint.GetPosition()[1] + round(math.sin(target_angle) * dist),
+                cls.compute_target_position(source_anchor_footprint, source_footprint.GetPosition(), target_anchor_footprint),
                 target_anchor_footprint.GetOrientation().AsRadians() + rel_orientation)
 
     @classmethod
@@ -97,12 +99,12 @@ class ReplicateSublayout():
         The first correspondence are the anchor footprints, the rest are the footprints to be replicated."""
         source_anchor, target_anchor = correspondences[0]
         for source_footprint, target_footprint in correspondences[1:]:
-            tgt_flipped, tgt_x, tgt_y, tgt_rot = cls.compute_new_layout(source_anchor, source_footprint, target_anchor)
+            tgt_flipped, tgt_pos, tgt_rot = cls.compute_new_layout(source_anchor, source_footprint, target_anchor)
             if tgt_flipped:
                 target_footprint.SetLayerAndFlip(pcbnew.B_Cu)
             else:
                 target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
-            target_footprint.SetPosition(pcbnew.VECTOR2I(tgt_x, tgt_y))
+            target_footprint.SetPosition(tgt_pos)
             target_footprint.SetOrientationDegrees(tgt_rot * 180 / math.pi)
 
     def replicate_tracks(self, target_board: pcbnew.BOARD, target_anchor: pcbnew.FOOTPRINT) -> None:
