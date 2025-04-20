@@ -1,3 +1,3 @@
-from .sublayout import SubLayout
+from .plugin import SubLayout
 
 SubLayout().register()
