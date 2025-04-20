@@ -113,10 +113,10 @@ class ReplicateSublayout():
         """Replicates the tracks from the source board to the target board."""
         for track in self._src_board.GetTracks():  # type: pcbnew.PCB_TRACK
             target_track = track.Duplicate()  # type: pcbnew.PCB_TRACK
+            target_board.Add(target_track)
             target_track.SetStart(self.compute_target_position(source_anchor_footprint,
-                                                               target_track.GetStart(),
+                                                               track.GetStart(),
                                                                target_anchor_footprint))
             target_track.SetEnd(self.compute_target_position(source_anchor_footprint,
-                                                             target_track.GetEnd(),
+                                                             track.GetEnd(),
                                                              target_anchor_footprint))
-            target_board.Add(target_track)
