@@ -3,8 +3,8 @@ import unittest
 
 import pcbnew
 
-from board_utils import BoardUtils
-from replicate_sublayout import ReplicateSublayout
+from .board_utils import BoardUtils
+from .replicate_sublayout import ReplicateSublayout
 
 
 class ReplicateTestCase(unittest.TestCase):
@@ -47,4 +47,4 @@ class ReplicateTestCase(unittest.TestCase):
         sublayout.replicate_tracks()
         sublayout.replicate_zones()
 
-        board.Save('test_output_replicate.kicad_pcb')
+        board.Save('../test_output_replicate.kicad_pcb')

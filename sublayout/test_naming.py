@@ -3,7 +3,7 @@ import unittest
 
 import pcbnew
 
-from hierarchy_namer import HierarchyNamer
+from .hierarchy_namer import HierarchyNamer
 
 
 class NamingTestCase(unittest.TestCase):

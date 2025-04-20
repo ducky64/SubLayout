@@ -3,8 +3,8 @@ import unittest
 
 import pcbnew
 
-from board_utils import BoardUtils
-from save_sublayout import SaveSublayout
+from .board_utils import BoardUtils
+from .save_sublayout import SaveSublayout
 
 
 class SaveTestCase(unittest.TestCase):

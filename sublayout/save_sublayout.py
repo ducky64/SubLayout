@@ -8,7 +8,7 @@ from .board_utils import BoardUtils
 class SaveSublayout():
     def create_sublayout(self) -> pcbnew.BOARD:
         """Creates a (copy) board with only the sublayout."""
-        board = BoardUtils.duplicate_board(self._board)  # create working copy
+        board = self._board.Duplicate()
         in_scope, out_scope = self._filter_board(board, self.path_prefix)
         for item in out_scope:
             board.Delete(item)

@@ -4,9 +4,9 @@ from typing import List
 import pcbnew
 import wx
 
-from .hierarchy_namer import HierarchyNamer
-from .save_sublayout import SaveSublayout
-from .board_utils import BoardUtils
+from .sublayout.hierarchy_namer import HierarchyNamer
+from .sublayout.save_sublayout import SaveSublayout
+from .sublayout.board_utils import BoardUtils
 
 
 class HighlightManager():
@@ -114,14 +114,14 @@ class SubLayoutFrame(wx.Frame):
 
     def _on_save(self, event: wx.CommandEvent) -> None:
         selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
+        save_sublayout = SaveSublayout(self._board, selected_path_comps)
+        sublayout_board = save_sublayout.create_sublayout()
         dlg = wx.FileDialog(self, "Save to", os.getcwd(),
                             '_'.join(self._namer.name_path(selected_path_comps)),
                             "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
                             wx.FD_SAVE)
         res = dlg.ShowModal()
         if res == wx.ID_OK:
-            save_sublayout = SaveSublayout(self._board, selected_path_comps)
-            sublayout_board = save_sublayout.create_sublayout()
             sublayout_board.Save(dlg.GetPath())
         self.Close()
 

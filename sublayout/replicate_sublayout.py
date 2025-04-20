@@ -3,7 +3,7 @@ from typing import Tuple, List, Dict
 
 import pcbnew
 
-from board_utils import BoardUtils
+from .board_utils import BoardUtils
 
 
 class ReplicateSublayout():
