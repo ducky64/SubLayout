@@ -48,5 +48,6 @@ class ReplicateTestCase(unittest.TestCase):
         anchor = board.FindFootprintByReference('J1')
         correspondences, extra_src, extra_tgt = sublayout.compute_correspondences(board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         sublayout.replicate_footprints(board, correspondences)
+        sublayout.replicate_tracks(board, correspondences[0][0], correspondences[0][1])
 
         board.Save('test_output_replicate.kicad_pcb')

@@ -107,7 +107,16 @@ class ReplicateSublayout():
             target_footprint.SetPosition(tgt_pos)
             target_footprint.SetOrientationDegrees(tgt_rot * 180 / math.pi)
 
-    def replicate_tracks(self, target_board: pcbnew.BOARD, target_anchor: pcbnew.FOOTPRINT) -> None:
+    def replicate_tracks(self, target_board: pcbnew.BOARD,
+                         source_anchor_footprint: pcbnew.FOOTPRINT,
+                         target_anchor_footprint: pcbnew.FOOTPRINT) -> None:
         """Replicates the tracks from the source board to the target board."""
-        # TODO implement this
-        pass
+        for track in self._src_board.GetTracks():  # type: pcbnew.PCB_TRACK
+            target_track = track.Duplicate()  # type: pcbnew.PCB_TRACK
+            target_track.SetStart(self.compute_target_position(source_anchor_footprint,
+                                                               target_track.GetStart(),
+                                                               target_anchor_footprint))
+            target_track.SetEnd(self.compute_target_position(source_anchor_footprint,
+                                                             target_track.GetEnd(),
+                                                             target_anchor_footprint))
+            target_board.Add(target_track)
