@@ -102,7 +102,6 @@ class ReplicateSublayout():
     def replicate_footprints(self) -> None:
         """Replicates the footprints with the given footprint correspondences, as tuples of (source footprint, target footprint).
         The first correspondence are the anchor footprints, the rest are the footprints to be replicated."""
-        source_anchor, target_anchor = self._correspondences[0]
         for source_footprint, target_footprint in self._correspondences[1:]:
             tgt_flipped, tgt_pos, tgt_rot = self.compute_new_layout(source_footprint)
             if tgt_flipped:
@@ -111,6 +110,7 @@ class ReplicateSublayout():
                 target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
             target_footprint.SetPosition(tgt_pos)
             target_footprint.SetOrientationDegrees(tgt_rot * 180 / math.pi)
+        # pcbnew.Refresh()
 
     def replicate_tracks(self) -> None:
         """Replicates the tracks from the source board to the target board."""
@@ -120,6 +120,8 @@ class ReplicateSublayout():
             target_track.SetStart(self.compute_target_position(track.GetStart()))
             target_track.SetEnd(self.compute_target_position(track.GetEnd()))
             # TODO update netcodes
+        # pcbnew.Refresh()
+
 
     def replicate_zones(self) -> None:
         """Replicates the zones from the source board to the target board."""
@@ -132,3 +134,4 @@ class ReplicateSublayout():
                     corner_id,
                     self.compute_target_position(zone.GetCornerPosition(corner_id)))
             # TODO update netcodes
+        # pcbnew.Refresh()

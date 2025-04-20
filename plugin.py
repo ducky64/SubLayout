@@ -4,6 +4,7 @@ from typing import List
 import pcbnew
 import wx
 
+from .sublayout.replicate_sublayout import ReplicateSublayout
 from .sublayout.hierarchy_namer import HierarchyNamer
 from .sublayout.save_sublayout import SaveSublayout
 from .sublayout.board_utils import BoardUtils
@@ -56,6 +57,9 @@ class SubLayoutFrame(wx.Frame):
         self._highlighter = HighlightManager(self._board)
         self.Bind(wx.EVT_CLOSE, self._on_close)
 
+        footprints = self._board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
+        self._footprints = [fp for fp in footprints if fp.IsSelected()]
+
         self._status = wx.StaticText(panel, label="")
         sizer.Add(self._status, 0, wx.ALL)
 
@@ -78,16 +82,14 @@ class SubLayoutFrame(wx.Frame):
     def _populate_hierarchy(self) -> None:
         self._hierarchy_list.Clear()
 
-        footprints = self._board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
-        footprints = [fp for fp in footprints if fp.IsSelected()]
-        if len(footprints) < 1:
+        if len(self._footprints) < 1:
             self._status.SetLabel("Must select anchor footprint(s).")
             return
 
         # if one footprint is selected, also allow export mode
-        if len(footprints) == 1:
+        if len(self._footprints) == 1:
             self._status.SetLabel("Select hierarchy level")
-            path = BoardUtils.footprint_path(footprints[0])
+            path = BoardUtils.footprint_path(self._footprints[0])
             for i in range(len(path) - 1):  # ignore leaf path
                 path_comps = path[:i+1]
                 label = '/'.join(self._namer.name_path(path_comps))
@@ -108,8 +110,24 @@ class SubLayoutFrame(wx.Frame):
         self.Destroy()
 
     def _on_restore(self, event: wx.CommandEvent) -> None:
-        selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
+        if len(self._footprints) != 1:
+            wx.MessageBox("Must select anchor footprint(s).", "Error", wx.OK | wx.ICON_ERROR)
+            return
 
+        selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
+        dlg = wx.FileDialog(self, "Save to", os.getcwd(),
+                            '_'.join(self._namer.name_path(selected_path_comps)),
+                            "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
+                            wx.FD_SAVE)
+        res = dlg.ShowModal()
+        if res != wx.ID_OK:
+            self.Close()
+
+        sublayout_board = pcbnew.PCB_IO_MGR.Load(pcbnew.PCB_IO_MGR.KICAD_SEXP, dlg.GetPath())
+        restore = ReplicateSublayout(sublayout_board, self._board, self._footprints[0], selected_path_comps)
+        restore.replicate_footprints()  # TODO checkboxes
+        restore.replicate_tracks()
+        restore.replicate_zones()
         self.Close()
 
     def _on_save(self, event: wx.CommandEvent) -> None:
@@ -121,9 +139,10 @@ class SubLayoutFrame(wx.Frame):
                             "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
                             wx.FD_SAVE)
         res = dlg.ShowModal()
-        if res == wx.ID_OK:
-            sublayout_board.Save(dlg.GetPath())
-        self.Close()
+        if res != wx.ID_OK:
+            self.Close()
+
+        sublayout_board.Save(dlg.GetPath())
 
 
 class SubLayout(pcbnew.ActionPlugin):
