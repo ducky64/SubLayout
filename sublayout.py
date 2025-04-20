@@ -1,11 +1,48 @@
-from typing import Dict, List, Tuple, cast
+import os
+from typing import List
 
 import pcbnew
-import os
 import wx
 
-
+from .hierarchy_namer import HierarchyNamer
+from .save_sublayout import SaveSublayout
 from .board_utils import BoardUtils
+
+
+class HighlightManager():
+    @classmethod
+    def _highlight_footprint(cls, footprint: pcbnew.FOOTPRINT, bright: bool = True) -> None:
+        """Highlight a footprint on the board, including pads."""
+        if bright:
+            footprint.SetBrightened()
+            for pad in footprint.Pads():  # type: pcbnew.PAD
+                pad.SetBrightened()
+        else:
+            footprint.ClearBrightened()
+            for pad in footprint.Pads():  # type: pcbnew.PAD
+                pad.ClearBrightened()
+
+    def __init__(self, board: pcbnew.BOARD) -> None:
+        self._board = board
+        self._highlighted_items: List[pcbnew.EDA_ITEM] = []
+
+    def highlight(self, items: List[pcbnew.EDA_ITEM]) -> None:
+        """Highlights the given items on the board."""
+        for item in items:
+            if isinstance(item, pcbnew.FOOTPRINT):
+                self._highlight_footprint(item, True)
+            else:
+                item.SetBrightened()
+        self._highlighted_items.extend(items)
+
+    def clear(self) -> None:
+        """Clears the highlights on the board."""
+        for item in self._highlighted_items:
+            if isinstance(item, pcbnew.FOOTPRINT):
+                self._highlight_footprint(item, False)
+            else:
+                item.ClearBrightened()
+        self._highlighted_items.clear()
 
 
 class SubLayoutFrame(wx.Frame):
@@ -14,23 +51,34 @@ class SubLayoutFrame(wx.Frame):
         panel = wx.Panel(self)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
+        self._board = pcbnew.GetBoard()  # type: pcbnew.BOARD
+        self._namer = HierarchyNamer(self._board)
+        self._highlighter = HighlightManager(self._board)
+        self.Bind(wx.EVT_CLOSE, self._on_close)
+
         self._status = wx.StaticText(panel, label="")
         sizer.Add(self._status, 0, wx.ALL)
 
         self._hierarchy_list = wx.ListBox(panel, style=wx.LB_SINGLE)
+        self._hierarchy_list.Bind(wx.EVT_LISTBOX, self._on_select_hierarchy)
         sizer.Add(self._hierarchy_list, 1, wx.EXPAND | wx.ALL)
+        #
+        self._restore_button = wx.Button(panel, label="Restore")
+        self._restore_button.Bind(wx.EVT_BUTTON, self._on_restore)
+        sizer.Add(self._restore_button, 0, wx.ALL | wx.ALIGN_CENTER)
+
+        self._save_button = wx.Button(panel, label="Save")
+        self._save_button.Bind(wx.EVT_BUTTON, self._on_save)
+        sizer.Add(self._save_button, 0, wx.ALL | wx.ALIGN_CENTER)
 
         panel.SetSizer(sizer)
-        self._hierarchy_list.Bind(wx.EVT_LISTBOX, self._on_select_hierarchy)
 
         self._populate_hierarchy()
 
     def _populate_hierarchy(self) -> None:
         self._hierarchy_list.Clear()
 
-        board = pcbnew.GetBoard()  # type: pcbnew.BOARD
-        footprints = board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
-        path_sheetfile_names = BoardUtils.calculate_path_sheetfile_names(footprints)
+        footprints = self._board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
         footprints = [fp for fp in footprints if fp.IsSelected()]
         if len(footprints) < 1:
             self._status.SetLabel("Must select anchor footprint(s).")
@@ -42,29 +90,40 @@ class SubLayoutFrame(wx.Frame):
             path = BoardUtils.footprint_path(footprints[0])
             for i in range(len(path) - 1):  # ignore leaf path
                 path_comps = path[:i+1]
-                path_comps_short = [path_elt[-8:] for path_elt in path_comps]
-                if path_comps in path_sheetfile_names:
-                    sheetfile, sheetname = path_sheetfile_names[path_comps]
-                    label = f"{'/'.join(path_comps_short)}: {sheetname} ({sheetfile})"
-                else:
-                    label = f"{'/'.join(path_comps_short)}: <not found>"
+                label = '/'.join(self._namer.name_path(path_comps))
                 self._hierarchy_list.Append(label, path_comps)
-
         else:
             self._status.SetLabel("TODO support multiple selected footprints")
             # TODO allow restore of multiple footprints by finding common sheetfiles with differing sheetnames
 
     def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
         selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
-        board = pcbnew.GetBoard()  # type: pcbnew.BOARD
-        footprints = board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
-
-        for footprint in footprints:
-            if BoardUtils.footprint_path_startswith(footprint, selected_path_comps):
-                BoardUtils.highlight_footprint(footprint, bright=True)
-            else:
-                BoardUtils.highlight_footprint(footprint, bright=False)
+        in_scope, _ = SaveSublayout._filter_board(self._board, selected_path_comps)
+        self._highlighter.highlight(in_scope)
         pcbnew.Refresh()
+
+    def _on_close(self, event: wx.CommandEvent) -> None:
+        self._highlighter.clear()
+        pcbnew.Refresh()
+        self.Destroy()
+
+    def _on_restore(self, event: wx.CommandEvent) -> None:
+        selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
+
+        self.Close()
+
+    def _on_save(self, event: wx.CommandEvent) -> None:
+        selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
+        dlg = wx.FileDialog(self, "Save to", os.getcwd(),
+                            '_'.join(self._namer.name_path(selected_path_comps)),
+                            "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
+                            wx.FD_SAVE)
+        res = dlg.ShowModal()
+        if res == wx.ID_OK:
+            save_sublayout = SaveSublayout(self._board, selected_path_comps)
+            sublayout_board = save_sublayout.create_sublayout()
+            sublayout_board.Save(dlg.GetPath())
+        self.Close()
 
 
 class SubLayout(pcbnew.ActionPlugin):
@@ -79,3 +138,7 @@ class SubLayout(pcbnew.ActionPlugin):
         editor = wx.FindWindowByName("PcbFrame")
         self.frame = SubLayoutFrame(editor)
         self.frame.Show()
+
+
+if __name__ == '__main__':
+    pass

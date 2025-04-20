@@ -6,18 +6,6 @@ import pcbnew
 
 class BoardUtils():
     @classmethod
-    def highlight_footprint(cls, footprint: pcbnew.FOOTPRINT, bright: bool = True) -> None:
-        """Highlight a footprint on the board."""
-        if bright:
-            footprint.SetBrightened()
-            for pad in footprint.Pads():  # type: pcbnew.PAD
-                pad.SetBrightened()
-        else:
-            footprint.ClearBrightened()
-            for pad in footprint.Pads():  # type: pcbnew.PAD
-                pad.ClearBrightened()
-
-    @classmethod
     def footprint_path(cls, footprint: pcbnew.FOOTPRINT) -> Tuple[str, ...]:
         fp_path = footprint.GetPath()  # type: pcbnew.KIID_PATH
         return tuple(cast(str, fp_path.AsString()).strip('/').split('/'))

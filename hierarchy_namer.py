@@ -2,7 +2,7 @@ from typing import List, Dict, Tuple, cast, Optional
 
 import pcbnew
 
-from board_utils import BoardUtils
+from .board_utils import BoardUtils
 
 
 class HierarchyNamer:
