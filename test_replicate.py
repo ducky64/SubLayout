@@ -45,7 +45,8 @@ class ReplicateTestCase(unittest.TestCase):
 
         sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'UsbSublayout.kicad_pcb'))  # type: pcbnew.BOARD
         sublayout = ReplicateSublayout(sublayout_board)
-        anchor = board.FindFootprintByReference('R1')
-        correspondences, extra_src, extra_tgt = sublayout.compute_correspondences(board, anchor, BoardUtils.footprint_path(anchor)[:-2])
+        anchor = board.FindFootprintByReference('J1')
+        correspondences, extra_src, extra_tgt = sublayout.compute_correspondences(board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         sublayout.replicate_footprints(board, correspondences)
+
         board.Save('test_output_replicate.kicad_pcb')

@@ -84,8 +84,11 @@ class ReplicateSublayout():
         flipped = (target_anchor_footprint.GetSide() == 0 and rel_flipped) or \
                   (target_anchor_footprint.GetSide() != 0 and not rel_flipped)
         rel_orientation = source_footprint.GetOrientation().AsRadians() - source_anchor_footprint.GetOrientation().AsRadians()
-        return flipped, round(math.cos(target_angle) * dist), round(math.sin(target_angle) * dist),\
-            rel_orientation + target_anchor_footprint.GetOrientation().AsRadians()
+
+        return (flipped,
+                target_anchor_footprint.GetPosition()[0] + round(math.cos(target_angle) * dist),
+                target_anchor_footprint.GetPosition()[1] + round(math.sin(target_angle) * dist),
+                target_anchor_footprint.GetOrientation().AsRadians() + rel_orientation)
 
     @classmethod
     def replicate_footprints(cls, target_board: pcbnew.BOARD,
@@ -96,7 +99,7 @@ class ReplicateSublayout():
         for source_footprint, target_footprint in correspondences[1:]:
             tgt_flipped, tgt_x, tgt_y, tgt_rot = cls.compute_new_layout(source_anchor, source_footprint, target_anchor)
             if tgt_flipped:
-                target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
+                target_footprint.SetLayerAndFlip(pcbnew.B_Cu)
             else:
                 target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
             target_footprint.SetPosition(pcbnew.VECTOR2I(tgt_x, tgt_y))
