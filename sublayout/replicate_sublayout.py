@@ -110,7 +110,6 @@ class ReplicateSublayout():
                 target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
             target_footprint.SetPosition(tgt_pos)
             target_footprint.SetOrientationDegrees(tgt_rot * 180 / math.pi)
-        # pcbnew.Refresh()
 
     def replicate_tracks(self) -> None:
         """Replicates the tracks from the source board to the target board."""
@@ -120,18 +119,17 @@ class ReplicateSublayout():
             target_track.SetStart(self.compute_target_position(track.GetStart()))
             target_track.SetEnd(self.compute_target_position(track.GetEnd()))
             # TODO update netcodes
-        # pcbnew.Refresh()
-
 
     def replicate_zones(self) -> None:
         """Replicates the zones from the source board to the target board."""
         for zone_id in range(self._src_board.GetAreaCount()):
             zone = self._src_board.GetArea(zone_id)  # type: pcbnew.ZONE
-            target_zone = zone.Duplicate()
+            target_zone = zone.Duplicate()  # type: pcbnew.ZONE
             self._target_board.Add(target_zone)
             for corner_id in range(target_zone.GetNumCorners()):
                 target_zone.SetCornerPosition(
                     corner_id,
                     self.compute_target_position(zone.GetCornerPosition(corner_id)))
+            target_zone.SetNetCode(0)
+            target_zone.UnFill()
             # TODO update netcodes
-        # pcbnew.Refresh()

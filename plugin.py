@@ -115,19 +115,23 @@ class SubLayoutFrame(wx.Frame):
             return
 
         selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
-        dlg = wx.FileDialog(self, "Save to", os.getcwd(),
+        dlg = wx.FileDialog(self, "Restore sublayout from", os.getcwd(),
                             '_'.join(self._namer.name_path(selected_path_comps)),
                             "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
-                            wx.FD_SAVE)
+                            wx.FD_OPEN)
         res = dlg.ShowModal()
         if res != wx.ID_OK:
             self.Close()
 
-        sublayout_board = pcbnew.PCB_IO_MGR.Load(pcbnew.PCB_IO_MGR.KICAD_SEXP, dlg.GetPath())
+        sublayout_board = pcbnew.PCB_IO_MGR.Load(pcbnew.PCB_IO_MGR.KICAD_SEXP, dlg.GetPath())  # type: pcbnew.BOARD
+        if not sublayout_board:
+            wx.MessageBox("Failed to load sublayout board.", "Error", wx.OK | wx.ICON_ERROR)
+            return
         restore = ReplicateSublayout(sublayout_board, self._board, self._footprints[0], selected_path_comps)
         restore.replicate_footprints()  # TODO checkboxes
         restore.replicate_tracks()
         restore.replicate_zones()
+        pcbnew.Refresh()
         self.Close()
 
     def _on_save(self, event: wx.CommandEvent) -> None:
