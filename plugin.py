@@ -20,7 +20,7 @@ class HighlightManager():
                 pad.SetBrightened()
         else:
             footprint.ClearBrightened()
-            for pad in footprint.Pads():  # type: pcbnew.PAD
+            for pad in footprint.Pads():
                 pad.ClearBrightened()
 
     def __init__(self, board: pcbnew.BOARD) -> None:

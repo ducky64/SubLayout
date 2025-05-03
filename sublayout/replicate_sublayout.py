@@ -18,9 +18,9 @@ class ReplicateSublayout():
         self._target_anchor = target_anchor
         self._target_path_prefix = target_path_prefix
 
-        self._correspondences = []
-        self._extra_source_footprints = []
-        self._extra_target_footprints = []
+        self._correspondences: List[Tuple[pcbnew.FOOTPRINT, pcbnew.FOOTPRINT]] = []
+        self._extra_source_footprints: List[pcbnew.FOOTPRINT] = []
+        self._extra_target_footprints: List[pcbnew.FOOTPRINT] = []
         self._compute_correspondences()
 
     def _compute_correspondences(self) -> None:

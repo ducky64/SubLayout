@@ -10,7 +10,7 @@ class SaveSublayout():
         """Creates a (copy) board with only the sublayout."""
         board = pcbnew.NewBoard('sublayout')  # type: pcbnew.BOARD
         in_scope = self._filter_board(self._board, self.path_prefix)
-        nets_by_netcode = self._board.GetNetsByNetcode()  # type: Dict[int, pcbnew.NETINFO_ITEM]
+        nets_by_netcode: Dict[int, pcbnew.NETINFO_ITEM] = self._board.GetNetsByNetcode()
         for netcode, net in nets_by_netcode.items():
             board.Add(net)
         for item in in_scope:
@@ -36,10 +36,10 @@ class SaveSublayout():
                 for pad in footprint.Pads():  # type: pcbnew.PAD
                     exclude_netcodes.add(pad.GetNetCode())
             else:
-                for pad in footprint.Pads():  # type: pcbnew.PAD
+                for pad in footprint.Pads():
                     include_netcodes.add(pad.GetNetCode())
                 in_scope.append(footprint)
-        for track in board.GetTracks():  # type: List[pcbnew.PCB_TRACK]
+        for track in board.GetTracks():  # type: pcbnew.PCB_TRACK
             include_netcodes = include_netcodes.difference(exclude_netcodes)
             if track.GetNetCode() in include_netcodes:
                 in_scope.append(track)

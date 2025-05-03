@@ -11,7 +11,7 @@ class HierarchyNamer:
     def _build_sheetfile_names(cls, footprints: List[pcbnew.FOOTPRINT]) -> Dict[Tuple[str, ...], Tuple[str, str]]:
         """Iterates through footprints in the board to try to determine the sheetfile and sheetname
         associated with a path."""
-        path_sheetfile_names = {}
+        path_sheetfile_names: Dict[Tuple[str, ...], Tuple[str, str]] = {}
         for fp in footprints:
             fp_path_comps = BoardUtils.footprint_path(fp)
             if len(fp_path_comps) < 2:  # ignore root components
@@ -45,7 +45,7 @@ class HierarchyNamer:
 
     def name_footprint(self, footprint: pcbnew.FOOTPRINT) -> str:
         """Returns a structured name for the footprint"""
-        return self.name_path(BoardUtils.footprint_path(footprint), footprint.GetReference())
+        return '/'.join(self.name_path(BoardUtils.footprint_path(footprint), footprint.GetReference()))
 
     def containing_name(self, footprint: pcbnew.FOOTPRINT) -> str:
         """Returns the name of the sheet containing the footprint"""

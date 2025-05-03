@@ -18,7 +18,7 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertEqual(len(sublayout._extra_source_footprints), 0)
         self.assertEqual(len(sublayout._extra_target_footprints), 0)
 
-        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'UsbSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'UsbSublayout.kicad_pcb'))
         anchor = board.FindFootprintByReference('J1')
         sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         self.assertEqual(len(sublayout._correspondences), 3)
@@ -40,7 +40,7 @@ class ReplicateTestCase(unittest.TestCase):
         sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         sublayout.replicate_footprints()
 
-        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'UsbSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'UsbSublayout.kicad_pcb'))
         anchor = board.FindFootprintByReference('J1')
         sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         sublayout.replicate_footprints()
