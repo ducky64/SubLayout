@@ -34,3 +34,9 @@ class SaveTestCase(unittest.TestCase):
                               ).create_sublayout()
         footprint_refs = {footprint.GetReference() for footprint in board.GetFootprints()}
         self.assertEqual(footprint_refs, {'R1', 'R2'})
+
+    def test_save_group(self):
+        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
+        board = SaveSublayout(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1]
+                              ).create_sublayout()
+        board.Save('test_output_usb_grouped.kicad_pcb')

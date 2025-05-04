@@ -1,8 +1,9 @@
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Set, Optional
 
 import pcbnew
 
-from .board_utils import BoardUtils
+from .board_utils import BoardUtils, GroupWrapper
+from .hierarchy_namer import HierarchyNamer
 
 
 class SaveSublayout():
@@ -27,18 +28,34 @@ class SaveSublayout():
         List[pcbnew.BOARD_ITEM]:
         """Filters the footprints on the board, returning those that are in scope."""
         in_scope: List[pcbnew.BOARD_ITEM] = []
-        include_netcodes = set()  # nets that are part of the hierarchy
-        exclude_netcodes = set()  # nets that are part of footprints not part of the hierarchy
+        include_netcodes: Set[int] = set()  # nets that are part of the hierarchy
+        exclude_netcodes: Set[int] = set()  # nets that are part of footprints not part of the hierarchy
+        include_groups: Set[GroupWrapper] = set()  # PCB_GROUP.GetName, if not None
+        exclude_groups: Set[GroupWrapper] = set()
+
+        namer = HierarchyNamer(board)
 
         footprints = board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
         for footprint in footprints:
+            footprint_group = footprint.GetParentGroup()  # type: Optional[pcbnew.PCB_GROUP]
             if not BoardUtils.footprint_path_startswith(footprint, path_prefix):
                 for pad in footprint.Pads():  # type: pcbnew.PAD
                     exclude_netcodes.add(pad.GetNetCode())
+                if footprint_group is not None:
+                    exclude_groups.add(GroupWrapper(footprint_group))
             else:
                 for pad in footprint.Pads():
                     include_netcodes.add(pad.GetNetCode())
                 in_scope.append(footprint)
+                if footprint_group is not None:
+                    include_groups.add(GroupWrapper(footprint_group))
+
+            # if footprint_group is not None:
+            #     print(footprint_group.GetItems())
+            if footprint_group is not None:
+                parent = footprint_group.GetParentGroup()
+                if parent is not None:
+                    print(f"{GroupWrapper(footprint_group)}: {GroupWrapper(parent)}")
         for track in board.GetTracks():  # type: pcbnew.PCB_TRACK
             include_netcodes = include_netcodes.difference(exclude_netcodes)
             if track.GetNetCode() in include_netcodes:
@@ -47,5 +64,8 @@ class SaveSublayout():
             zone = board.GetArea(zone_id)  # type: pcbnew.ZONE
             if zone.GetNetCode() in include_netcodes:
                 in_scope.append(zone)
+
+        print(f"include: {include_groups}")
+        print(f"exclude: {exclude_groups}")
 
         return in_scope
