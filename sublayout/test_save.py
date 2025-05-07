@@ -37,8 +37,11 @@ class SaveTestCase(unittest.TestCase):
 
     def test_save_group(self):
         src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
-        board = SaveSublayout(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1]
-                              ).create_sublayout()
-        self.assertEqual(board.GetAreaCount(), 1)
-        self.assertGreater(len(board.GetTracks()), 0)
+        save_layout = SaveSublayout(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1])
+        filter_result = save_layout._filter_board()
+        self.assertIsNotNone(filter_result.root_group)
+        self.assertEqual(len(filter_result.groups), 1)  # only the internal group
+        self.assertEqual(len(filter_result.zones), 1)
+        self.assertGreater(len(filter_result.tracks), 0)
+        board = save_layout.create_sublayout()
         board.Save('test_output_usb_grouped.kicad_pcb')
