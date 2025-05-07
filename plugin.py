@@ -100,8 +100,8 @@ class SubLayoutFrame(wx.Frame):
 
     def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
         selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
-        in_scope, _ = SaveSublayout._filter_board(self._board, selected_path_comps)
-        self._highlighter.highlight(in_scope)
+        result = SaveSublayout._filter_board(self._board, selected_path_comps)
+        self._highlighter.highlight(result.footprints + result.tracks + result.zones)
         pcbnew.Refresh()
 
     def _on_close(self, event: wx.CommandEvent) -> None:

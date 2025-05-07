@@ -39,4 +39,6 @@ class SaveTestCase(unittest.TestCase):
         src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
         board = SaveSublayout(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1]
                               ).create_sublayout()
+        self.assertEqual(board.GetAreaCount(), 1)
+        self.assertGreater(len(board.GetTracks()), 0)
         board.Save('test_output_usb_grouped.kicad_pcb')
