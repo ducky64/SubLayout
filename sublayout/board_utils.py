@@ -58,6 +58,8 @@ class GroupWrapper():
             return (sx, sy, ex, ey, elt.GetWidth())
         elif isinstance(elt, pcbnew.ZONE):
             return tuple((elt.GetCornerPosition(i)[0], elt.GetCornerPosition(i)[1]) for i in range(elt.GetNumCorners()))
+        elif isinstance(elt, pcbnew.PCB_GROUP):
+            return GroupWrapper(elt)
         else:
             return None
 

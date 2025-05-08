@@ -28,9 +28,12 @@ class GroupUtilsTestCase(unittest.TestCase):
         src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
         group_j1 = GroupWrapper(src_board.FindFootprintByReference('J1').GetParentGroup())
         group_r1 = GroupWrapper(src_board.FindFootprintByReference('R1').GetParentGroup())
+        group_r2 = GroupWrapper(src_board.FindFootprintByReference('R2').GetParentGroup())
+        group_r1r2 = GroupWrapper(src_board.FindFootprintByReference('R2').GetParentGroup().GetParentGroup())
         self.assertEqual(group_j1.lowest_common_ancestor([group_j1, group_j1]), group_j1)
         self.assertEqual(group_j1.lowest_common_ancestor([group_r1, group_j1]), group_j1)
         self.assertEqual(group_j1.lowest_common_ancestor([group_r1, group_r1]), group_r1)
+        self.assertEqual(group_j1.lowest_common_ancestor([group_r1, group_r2]), group_r1r2)
 
         group_u2 = GroupWrapper(src_board.FindFootprintByReference('U2').GetParentGroup())
         self.assertIsNone(group_j1.lowest_common_ancestor([group_u2, group_j1]))
