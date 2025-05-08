@@ -23,7 +23,28 @@ class GroupWrapper():
     def lowest_common_ancestor(groups: List['GroupWrapper']) -> Optional['GroupWrapper']:
         """Returns the lowest common ancestor (deepest group) of the groups, or None if there is none
         (LCA is the board)."""
-        raise NotImplementedError
+        # for each group, get the path to the root, including self but not root
+        group_paths: List[List[GroupWrapper]] = []
+        for group in groups:
+            if group._group is None:
+                return None
+            group_path = []
+            while group._group is not None:
+                group_path.append(group)
+                group = GroupWrapper(group._group.GetParentGroup())
+            group_paths.append(list(reversed(group_path)))
+        # return the deepest group that is common to all paths
+        i = 0  # base case
+        for i in range(min(len(path) for path in group_paths)):
+            group = group_paths[0][i]
+            if all(path[i] == group for path in group_paths):
+                continue
+            else:
+                if i == 0:  # at the root, no common ancestor
+                    return None
+                else:
+                    return group_paths[0][i - 1]
+        return group_paths[0][i]  # iterated through all groups, return the last one
 
     @staticmethod
     def _elt_to_key(elt: pcbnew.BOARD_ITEM) -> Optional[Hashable]:
