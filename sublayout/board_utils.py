@@ -94,12 +94,16 @@ class GroupWrapper():
         else:
             self._key = None
 
+    def sorted_footprint_refs(self) -> Tuple[str, ...]:
+        """Returns the sorted footprint references in the group"""
+        footprints = [elt for elt in self._group.GetItems() if isinstance(elt, pcbnew.FOOTPRINT)]
+        return tuple(sorted([fp.GetReference() for fp in footprints]))
+
     def __repr__(self) -> str:
         if self._group is None:
             return f"GroupWrapper(None)"
 
-        footprints = [elt for elt in self._group.GetItems() if isinstance(elt, pcbnew.FOOTPRINT)]
-        sorted_refs = tuple(sorted([fp.GetReference() for fp in footprints]))
+        sorted_refs = self.sorted_footprint_refs()
         item_count = len(self._group.GetItems())
         if self._group.GetName():
             return f"GroupWrapper({self._group.GetName()}: {item_count}; {', '.join(sorted_refs)})"

@@ -1,14 +1,13 @@
-from typing import Tuple, List, Dict, Set, Optional, NamedTuple, Union
+from typing import Tuple, List, Dict, Set, NamedTuple, Union, Sequence
 
 import pcbnew
 
 from .board_utils import BoardUtils, GroupWrapper
-from .hierarchy_namer import HierarchyNamer
 
 
 class FilterResult(NamedTuple):
     elts: List[Union[pcbnew.FOOTPRINT, pcbnew.PCB_TRACK, pcbnew.ZONE]]
-    groups: Set[GroupWrapper]  # groups that are wholly part of the hierarchy
+    groups: Sequence[GroupWrapper]  # groups that are wholly part of the hierarchy
 
 
 class SaveSublayout():
@@ -86,4 +85,4 @@ class SaveSublayout():
 
         ungrouped_elts = elts_by_group.pop(GroupWrapper(None), [])
 
-        return FilterResult(ungrouped_elts, set(elts_by_group.keys()))
+        return FilterResult(ungrouped_elts, list(elts_by_group.keys()))
