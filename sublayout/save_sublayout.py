@@ -66,6 +66,13 @@ class SaveSublayout():
                 result.zones.append(zone)
 
         # TODO warn on overlap include/exclude groups
-        # TODO delete top-level groups from save
+        # TODO copy groups to new board, ignoring top-level group
+        # algo: gather items by group, including ungrouped items
+        # for all groups, check for conflicts (groups containing other footprints, even recursively)
+        #   move items to ungrouped
+        # for remaining groups, remove sub-groups
+        # replicate groups, recursively, maintaining group structure
+        #   exception: if there is only one remaining group, it is the top-level board
+
 
         return result
