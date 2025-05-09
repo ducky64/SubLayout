@@ -47,6 +47,22 @@ class GroupWrapper():
         return group_paths[0][i]  # iterated through all groups, return the last one
 
     @staticmethod
+    def highest_covering_groups(groups: List['GroupWrapper']) -> List['GroupWrapper']:
+        """Returns the minimal set of groups at the highest level of hierarchy that cover all input groups."""
+        output_groups: List['GroupWrapper'] = []
+        for group in groups:
+            if group in output_groups:  # deduplicate
+                continue
+            test_group = group
+            while test_group._group is not None:
+                test_group = GroupWrapper(test_group._group.GetParentGroup())
+                if test_group in groups:  # is child of a higher element in the group
+                    break
+            if test_group._group is None:  # made it to root
+                output_groups.append(group)
+        return output_groups
+
+    @staticmethod
     def _elt_to_key(elt: pcbnew.BOARD_ITEM) -> Optional[Hashable]:
         """Creates a hashable key for some types of BOARD_ITEMs"""
         if isinstance(elt, pcbnew.FOOTPRINT):
