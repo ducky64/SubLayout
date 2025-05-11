@@ -3,7 +3,7 @@ import unittest
 
 import pcbnew
 
-from .board_utils import BoardUtils
+from .board_utils import BoardUtils, GroupWrapper
 from .save_sublayout import HierarchySelector
 
 
@@ -37,10 +37,21 @@ class SaveTestCase(unittest.TestCase):
 
     def test_save_group(self):
         src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
-        save_layout = HierarchySelector(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1])
-        filter_result = save_layout.get_elts()
-        self.assertEqual(len(filter_result.elts), 0)  # no loose elts
-        self.assertEqual(len(filter_result.groups), 1)  # main group only
-        self.assertEqual(filter_result.groups[0].sorted_footprint_refs(), ('J1', ))  # direct contents only
-        board = save_layout.create_sublayout()
+        selector = HierarchySelector(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1])
+        result = selector.get_elts()
+        self.assertEqual(len(result.elts), 0)  # no loose elts
+        self.assertEqual(len(result.groups), 1)  # main group only
+        self.assertEqual(GroupWrapper(result.groups[0]).sorted_footprint_refs(), ('J1', ))  # direct contents only
+        board = selector.create_sublayout()
         board.Save('test_output_usb_grouped.kicad_pcb')
+
+    def test_delete_group(self):
+        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
+        selector = HierarchySelector(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1])
+        self.assertIsNotNone(src_board.FindFootprintByReference('J1').GetParentGroup())
+        selector.delete((pcbnew.FOOTPRINT,))
+        self.assertIsNotNone(src_board.FindFootprintByReference('J1'))
+        self.assertIsNotNone(src_board.FindFootprintByReference('R1'))
+        self.assertIsNotNone(src_board.FindFootprintByReference('R2'))
+        self.assertIsNone(src_board.FindFootprintByReference('J1').GetParentGroup())
+        src_board.Save('test_output_deletedusb.kicad_pcb')

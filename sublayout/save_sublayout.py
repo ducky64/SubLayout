@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Set, NamedTuple, Union, Sequence, Optional
+from typing import Tuple, List, Dict, Set, NamedTuple, Union, Sequence, Optional, Type
 
 import pcbnew
 
@@ -12,7 +12,7 @@ class FilterResult(NamedTuple):
 
 class HierarchySelector():
     def create_sublayout(self) -> pcbnew.BOARD:
-        """Creates a (copy) board with only the sublayout."""
+        """Creates a (copy) board with only the hierarchical elements, preserving group structure."""
         board = pcbnew.CreateEmptyBoard()  # type: pcbnew.BOARD
         result = self.get_elts()
 
@@ -53,6 +53,25 @@ class HierarchySelector():
             clone_group(group, target_group)
 
         return board
+
+    def delete(self, exclude_types: Tuple[Type[pcbnew.EDA_ITEM],]) -> None:
+        """Deletes all items in the group, except those of the specified types."""
+        result = self.get_elts()
+
+        for elt in result.elts:  # delete loose items
+            self._board.Delete(elt)
+
+        def delete_group(group: pcbnew.PCB_GROUP) -> None:
+            """Recursively deletes a group and its contents."""
+            for item in group.GetItems():
+                if isinstance(item, pcbnew.PCB_GROUP):
+                    delete_group(item)
+                if not isinstance(item, exclude_types):
+                    self._board.Delete(item)
+                else:  # if excluded, remove from group
+                    group.RemoveItem(item)
+        for group in result.groups:
+            delete_group(group)
 
     def __init__(self, board: pcbnew.BOARD, path_prefix: Tuple[str, ...]) -> None:
         self._board = board
