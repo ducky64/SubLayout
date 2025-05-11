@@ -6,7 +6,7 @@ import wx
 
 from .sublayout.replicate_sublayout import ReplicateSublayout
 from .sublayout.hierarchy_namer import HierarchyNamer
-from .sublayout.save_sublayout import SaveSublayout
+from .sublayout.save_sublayout import HierarchySelector
 from .sublayout.board_utils import BoardUtils
 
 
@@ -71,10 +71,12 @@ class SubLayoutFrame(wx.Frame):
         #
         self._restore_button = wx.Button(panel, label="Restore")
         self._restore_button.Bind(wx.EVT_BUTTON, self._on_restore)
+        self._restore_button.Disable()
         sizer.Add(self._restore_button, 0, wx.ALL | wx.ALIGN_CENTER)
 
         self._save_button = wx.Button(panel, label="Save")
         self._save_button.Bind(wx.EVT_BUTTON, self._on_save)
+        self._save_button.Disable()
         sizer.Add(self._save_button, 0, wx.ALL | wx.ALIGN_CENTER)
 
         panel.SetSizer(sizer)
@@ -103,9 +105,11 @@ class SubLayoutFrame(wx.Frame):
     def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
         try:
             selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
-            result = SaveSublayout(self._board, selected_path_comps)._filter_board()
+            result = HierarchySelector(self._board, selected_path_comps).get_elts()
             self._highlighter.clear()
             self._highlighter.highlight(result.elts + result.groups)
+            self._save_button.Enable()
+            self._restore_button.Enable()
             pcbnew.Refresh()
         except Exception as e:
             wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
@@ -116,43 +120,49 @@ class SubLayoutFrame(wx.Frame):
         self.Destroy()
 
     def _on_restore(self, event: wx.CommandEvent) -> None:
-        if len(self._footprints) != 1:
-            wx.MessageBox("Must select anchor footprint(s).", "Error", wx.OK | wx.ICON_ERROR)
-            return
+        try:
+            if len(self._footprints) != 1:
+                wx.MessageBox("Must select anchor footprint(s).", "Error", wx.OK | wx.ICON_ERROR)
+                return
 
-        selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
-        dlg = wx.FileDialog(self, "Restore sublayout from", os.getcwd(),
-                            '_'.join(self._namer.name_path(selected_path_comps)),
-                            "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
-                            wx.FD_OPEN)
-        res = dlg.ShowModal()
-        if res != wx.ID_OK:
+            selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
+            dlg = wx.FileDialog(self, "Restore sublayout from", os.getcwd(),
+                                '_'.join(self._namer.name_path(selected_path_comps)),
+                                "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
+                                wx.FD_OPEN)
+            res = dlg.ShowModal()
+            if res != wx.ID_OK:
+                self.Close()
+
+            sublayout_board = pcbnew.PCB_IO_MGR.Load(pcbnew.PCB_IO_MGR.KICAD_SEXP, dlg.GetPath())  # type: pcbnew.BOARD
+            if not sublayout_board:
+                wx.MessageBox("Failed to load sublayout board.", "Error", wx.OK | wx.ICON_ERROR)
+                return
+            restore = ReplicateSublayout(sublayout_board, self._board, self._footprints[0], selected_path_comps)
+            restore.replicate_footprints()  # TODO checkboxes
+            restore.replicate_tracks()
+            restore.replicate_zones()
+            pcbnew.Refresh()
             self.Close()
-
-        sublayout_board = pcbnew.PCB_IO_MGR.Load(pcbnew.PCB_IO_MGR.KICAD_SEXP, dlg.GetPath())  # type: pcbnew.BOARD
-        if not sublayout_board:
-            wx.MessageBox("Failed to load sublayout board.", "Error", wx.OK | wx.ICON_ERROR)
-            return
-        restore = ReplicateSublayout(sublayout_board, self._board, self._footprints[0], selected_path_comps)
-        restore.replicate_footprints()  # TODO checkboxes
-        restore.replicate_tracks()
-        restore.replicate_zones()
-        pcbnew.Refresh()
-        self.Close()
+        except Exception as e:
+            wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
 
     def _on_save(self, event: wx.CommandEvent) -> None:
-        selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
-        save_sublayout = SaveSublayout(self._board, selected_path_comps)
-        sublayout_board = save_sublayout.create_sublayout()
-        dlg = wx.FileDialog(self, "Save to", os.getcwd(),
-                            '_'.join(self._namer.name_path(selected_path_comps)),
-                            "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
-                            wx.FD_SAVE)
-        res = dlg.ShowModal()
-        if res != wx.ID_OK:
-            self.Close()
+        try:
+            selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
+            save_sublayout = HierarchySelector(self._board, selected_path_comps)
+            sublayout_board = save_sublayout.create_sublayout()
+            dlg = wx.FileDialog(self, "Save to", os.getcwd(),
+                                '_'.join(self._namer.name_path(selected_path_comps)),
+                                "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
+                                wx.FD_SAVE)
+            res = dlg.ShowModal()
+            if res != wx.ID_OK:
+                self.Close()
 
-        sublayout_board.Save(dlg.GetPath())
+            sublayout_board.Save(dlg.GetPath())
+        except Exception as e:
+            wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
 
 
 class SubLayout(pcbnew.ActionPlugin):

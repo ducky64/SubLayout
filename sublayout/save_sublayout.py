@@ -10,19 +10,11 @@ class FilterResult(NamedTuple):
     groups: List[pcbnew.PCB_GROUP]  # groups that are wholly part of the hierarchy
 
 
-class SaveSublayout():
+class HierarchySelector():
     def create_sublayout(self) -> pcbnew.BOARD:
         """Creates a (copy) board with only the sublayout."""
         board = pcbnew.CreateEmptyBoard()  # type: pcbnew.BOARD
-        result = self._filter_board()
-
-        # TODO copy groups to new board, ignoring top-level group
-        # algo: gather items by group, including ungrouped items
-        # for all groups, check for conflicts (groups containing other footprints, even recursively)
-        #   move items to ungrouped
-        # for remaining groups, remove sub-groups
-        # replicate groups, recursively, maintaining group structure
-        #   exception: if there is only one remaining group, it is the top-level board
+        result = self.get_elts()
 
         # the new board does not have nets, add the nets so items retain connectivity
         nets_by_netcode: Dict[int, pcbnew.NETINFO_ITEM] = self._board.GetNetsByNetcode()
@@ -66,7 +58,7 @@ class SaveSublayout():
         self._board = board
         self.path_prefix = path_prefix
 
-    def _filter_board(self) -> FilterResult:
+    def get_elts(self) -> FilterResult:
         """Filters the footprints on the board, returning those that are in scope."""
         include_netcodes: Set[int] = set()  # nets that are part of the hierarchy
         exclude_netcodes: Set[int] = set()  # nets that are part of footprints not part of the hierarchy
