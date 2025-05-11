@@ -32,6 +32,8 @@ class HighlightManager():
         for item in items:
             if isinstance(item, pcbnew.FOOTPRINT):
                 self._highlight_footprint(item, True)
+            elif isinstance(item, pcbnew.PCB_GROUP):
+                self.highlight(item.GetItems())
             else:
                 item.SetBrightened()
         self._highlighted_items.extend(items)
@@ -99,10 +101,13 @@ class SubLayoutFrame(wx.Frame):
             # TODO allow restore of multiple footprints by finding common sheetfiles with differing sheetnames
 
     def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
-        selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
-        result = SaveSublayout(self._board, selected_path_comps)._filter_board()
-        self._highlighter.highlight(result.footprints + result.tracks + result.zones)
-        pcbnew.Refresh()
+        try:
+            selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
+            result = SaveSublayout(self._board, selected_path_comps)._filter_board()
+            self._highlighter.highlight(result.elts + result.groups)
+            pcbnew.Refresh()
+        except Exception as e:
+            wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
 
     def _on_close(self, event: wx.CommandEvent) -> None:
         self._highlighter.clear()

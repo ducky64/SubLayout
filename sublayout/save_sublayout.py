@@ -7,7 +7,7 @@ from .board_utils import BoardUtils, GroupWrapper
 
 class FilterResult(NamedTuple):
     elts: List[Union[pcbnew.FOOTPRINT, pcbnew.PCB_TRACK, pcbnew.ZONE]]
-    groups: Sequence[GroupWrapper]  # groups that are wholly part of the hierarchy
+    groups: List[pcbnew.PCB_GROUP]  # groups that are wholly part of the hierarchy
 
 
 class SaveSublayout():
@@ -53,14 +53,12 @@ class SaveSublayout():
 
         # clone groups
         for group in result.groups:
-            if group._group is None:
-                continue
             if len(result.groups) == 1 and not result.elts:  # group is top-level
                 target_group: Optional[pcbnew.PCB_GROUP] = None
             else:
                 target_group = pcbnew.PCB_GROUP(board)
                 board.Add(target_group)
-            clone_group(group._group, target_group)
+            clone_group(group, target_group)
 
         return board
 
@@ -116,4 +114,4 @@ class SaveSublayout():
 
         ungrouped_elts = elts_by_group.pop(GroupWrapper(None), [])
 
-        return FilterResult(ungrouped_elts, list(elts_by_group.keys()))
+        return FilterResult(ungrouped_elts, list([group._group for group in elts_by_group.keys()]))
