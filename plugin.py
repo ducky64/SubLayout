@@ -104,6 +104,7 @@ class SubLayoutFrame(wx.Frame):
         try:
             selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
             result = SaveSublayout(self._board, selected_path_comps)._filter_board()
+            self._highlighter.clear()
             self._highlighter.highlight(result.elts + result.groups)
             pcbnew.Refresh()
         except Exception as e:
