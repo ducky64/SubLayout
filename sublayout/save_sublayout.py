@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Set, NamedTuple, Union, Sequence
+from typing import Tuple, List, Dict, Set, NamedTuple, Union, Sequence, Optional
 
 import pcbnew
 
@@ -24,13 +24,44 @@ class SaveSublayout():
         # replicate groups, recursively, maintaining group structure
         #   exception: if there is only one remaining group, it is the top-level board
 
-
+        # the new board does not have nets, add the nets so items retain connectivity
         nets_by_netcode: Dict[int, pcbnew.NETINFO_ITEM] = self._board.GetNetsByNetcode()
         for netcode, net in nets_by_netcode.items():
             board.Add(net)
-        for item in result.footprints + result.tracks + result.zones:
-            cloned = item.Duplicate()
+
+        # clone loose items
+        for elt in result.elts:
+            cloned = elt.Duplicate()
             board.Add(cloned)
+
+        def clone_group(group: pcbnew.PCB_GROUP, target_group: Optional[pcbnew.PCB_GROUP]) -> None:
+            """Recursively clones a group and its contents.
+            If specified, target group is a group in the target to group the items,
+            otherwise items added to board top"""
+            for item in group.GetItems():
+                if isinstance(item, pcbnew.PCB_GROUP):
+                    new_group = pcbnew.PCB_GROUP(board)
+                    board.Add(new_group)
+                    if target_group is not None:
+                        target_group.AddItem(new_group)
+                    clone_group(item, new_group)
+                else:
+                    cloned_item = item.Duplicate()
+                    board.Add(cloned_item)
+                    if target_group is not None:
+                        target_group.AddItem(cloned_item)
+
+        # clone groups
+        for group in result.groups:
+            if group._group is None:
+                continue
+            if len(result.groups) == 1 and not result.elts:  # group is top-level
+                target_group: Optional[pcbnew.PCB_GROUP] = None
+            else:
+                target_group = pcbnew.PCB_GROUP(board)
+                board.Add(target_group)
+            clone_group(group._group, target_group)
+
         return board
 
     def __init__(self, board: pcbnew.BOARD, path_prefix: Tuple[str, ...]) -> None:
