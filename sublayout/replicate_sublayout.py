@@ -18,10 +18,19 @@ class ReplicateSublayout():
         self._target_anchor = target_anchor
         self._target_path_prefix = target_path_prefix
 
-        self._correspondences: List[Tuple[pcbnew.FOOTPRINT, pcbnew.FOOTPRINT]] = []
-        self._extra_source_footprints: List[pcbnew.FOOTPRINT] = []
-        self._extra_target_footprints: List[pcbnew.FOOTPRINT] = []
-        self._compute_correspondences()
+        # self._correspondences: List[Tuple[pcbnew.FOOTPRINT, pcbnew.FOOTPRINT]] = []
+        # self._extra_source_footprints: List[pcbnew.FOOTPRINT] = []
+        # self._extra_target_footprints: List[pcbnew.FOOTPRINT] = []
+        # self._compute_correspondences()
+
+    def _replicate(self):
+        # find all source footprints in the dest hierarchical group
+        # delete the source group
+        # index footprints by path postfix
+        # otherwise, create a new group as the top-level group
+        # iterate through all elements in source board
+        # recursively within groups: replicate tracks and stuff
+        # for footprints, move the existing footprint in to new position and into the target group
 
     def _compute_correspondences(self) -> None:
         """Computes the correspondences between the source and target footprints.
@@ -70,7 +79,7 @@ class ReplicateSublayout():
                     self._correspondences.append((source_footprint, footprint))
                 del(source_footprint_by_postfix[target_postfix])
 
-    def compute_target_position(self, source_pos: pcbnew.VECTOR2I) -> pcbnew.VECTOR2I:
+    def _compute_target_position(self, source_pos: pcbnew.VECTOR2I) -> pcbnew.VECTOR2I:
         source_anchor, target_anchor = self._correspondences[0]
         dx = source_pos[0] - source_anchor.GetPosition()[0]
         # kicad uses computer graphics coordinates, which has Y increasing downwards, opposite of math conventions
@@ -85,7 +94,7 @@ class ReplicateSublayout():
             target_anchor.GetPosition()[1] - round(math.sin(target_angle) * dist)
         )
 
-    def compute_new_layout(self, source_footprint: pcbnew.FOOTPRINT) -> Tuple[bool, pcbnew.VECTOR2I, float]:
+    def _compute_target_footprint(self, source_footprint: pcbnew.FOOTPRINT) -> Tuple[bool, pcbnew.VECTOR2I, float]:
         """Returns the target position for the source footprint, given the source and target anchors.
         Position is returned as (flipped, x, y, rot), with x, y in KiCad units in target absolute board space,
         and rot in radians."""
@@ -96,14 +105,14 @@ class ReplicateSublayout():
         rel_orientation = source_footprint.GetOrientation().AsRadians() - source_anchor.GetOrientation().AsRadians()
 
         return (flipped,
-                self.compute_target_position(source_footprint.GetPosition()),
+                self._compute_target_position(source_footprint.GetPosition()),
                 target_anchor.GetOrientation().AsRadians() + rel_orientation)
 
     def replicate_footprints(self) -> None:
         """Replicates the footprints with the given footprint correspondences, as tuples of (source footprint, target footprint).
         The first correspondence are the anchor footprints, the rest are the footprints to be replicated."""
         for source_footprint, target_footprint in self._correspondences[1:]:
-            tgt_flipped, tgt_pos, tgt_rot = self.compute_new_layout(source_footprint)
+            tgt_flipped, tgt_pos, tgt_rot = self._compute_target_footprint(source_footprint)
             if tgt_flipped:
                 target_footprint.SetLayerAndFlip(pcbnew.B_Cu)
             else:
@@ -116,8 +125,8 @@ class ReplicateSublayout():
         for track in self._src_board.GetTracks():  # type: pcbnew.PCB_TRACK
             target_track = track.Duplicate()  # type: pcbnew.PCB_TRACK
             self._target_board.Add(target_track)
-            target_track.SetStart(self.compute_target_position(track.GetStart()))
-            target_track.SetEnd(self.compute_target_position(track.GetEnd()))
+            target_track.SetStart(self._compute_target_position(track.GetStart()))
+            target_track.SetEnd(self._compute_target_position(track.GetEnd()))
             # TODO update netcodes
 
     def replicate_zones(self) -> None:
@@ -129,7 +138,7 @@ class ReplicateSublayout():
             for corner_id in range(target_zone.GetNumCorners()):
                 target_zone.SetCornerPosition(
                     corner_id,
-                    self.compute_target_position(zone.GetCornerPosition(corner_id)))
+                    self._compute_target_position(zone.GetCornerPosition(corner_id)))
             target_zone.SetNetCode(0)
             target_zone.UnFill()
             # TODO update netcodes
