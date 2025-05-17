@@ -4,7 +4,7 @@ import unittest
 import pcbnew
 
 from .board_utils import BoardUtils
-from .replicate_sublayout import ReplicateSublayout, FootprintCorrespondence
+from .replicate_sublayout import ReplicateSublayout, FootprintCorrespondence, PositionTransform
 
 
 class ReplicateTestCase(unittest.TestCase):
@@ -31,6 +31,18 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertEqual(len(correspondence.mapped_footprints), 2)
         self.assertEqual(len(correspondence.source_only_footprints), 1)  # just J1, which is out of scope
         self.assertEqual(len(correspondence.target_only_footprints), 0)
+
+    def test_transforms_identity(self):
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('U2')
+        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
+        transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
+        for src_footprint, target_footprint in correspondence.mapped_footprints:
+            self.assertEqual(transform.transform(target_footprint.GetPosition()), target_footprint.GetPosition())
+            self.assertEqual(transform.transform_orientation(target_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
+
 
     # def test_replicate(self):
     #     board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'BareBlinkyComplete.kicad_pcb'))  # type: pcbnew.BOARD

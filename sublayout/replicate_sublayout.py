@@ -68,7 +68,7 @@ class PositionTransform():
         self._source_anchor_rot = src_anchor.GetOrientation().AsRadians()
         self._source_anchor_flipped = src_anchor.GetSide() != 0
         self._target_anchor_pos = target_anchor.GetPosition()
-        self._target_anchor_rot = src_anchor.GetOrientation().AsRadians()
+        self._target_anchor_rot = target_anchor.GetOrientation().AsRadians()
         self._target_anchor_flipped = target_anchor.GetSide() != 0
 
     def transform(self, src_pos: pcbnew.VECTOR2I) -> pcbnew.VECTOR2I:
@@ -83,11 +83,11 @@ class PositionTransform():
         target_angle = self._target_anchor_rot + rel_dist_angle
         return pcbnew.VECTOR2I(
             self._target_anchor_pos[0] + round(math.cos(target_angle) * dist),
-            self._target_anchor_pos.GetPosition()[1] - round(math.sin(target_angle) * dist)
+            self._target_anchor_pos[1] - round(math.sin(target_angle) * dist)
         )
 
     def transform_orientation(self, src_rot: float) -> float:
-        """Given a source rotation, return its rotation in the target"""
+        """Given a source rotation (as radians), return its rotation (as radians) in the target"""
         return src_rot - self._source_anchor_rot
 
     def transform_flipped(self, src_flipped: bool) -> bool:
