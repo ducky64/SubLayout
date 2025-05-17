@@ -60,6 +60,42 @@ class FootprintCorrespondence(NamedTuple):
         return FootprintCorrespondence(mapped_footprints, source_only_footprints, target_only_footprints)
 
 
+class PositionTransform():
+    """A class that represents a position transform from source to target board.
+    The transform is defined by the source and target anchor footprints and the source and target positions."""
+    def __init__(self, src_anchor: pcbnew.FOOTPRINT, target_anchor: pcbnew.FOOTPRINT) -> None:
+        self._source_anchor_pos = src_anchor.GetPosition()
+        self._source_anchor_rot = src_anchor.GetOrientation().AsRadians()
+        self._source_anchor_flipped = src_anchor.GetSide() != 0
+        self._target_anchor_pos = target_anchor.GetPosition()
+        self._target_anchor_rot = src_anchor.GetOrientation().AsRadians()
+        self._target_anchor_flipped = target_anchor.GetSide() != 0
+
+    def transform(self, src_pos: pcbnew.VECTOR2I) -> pcbnew.VECTOR2I:
+        """Given a source position, return its position in the target"""
+        dx = src_pos[0] - self._target_anchor_pos[0]
+        # kicad uses computer graphics coordinates, which has Y increasing downwards, opposite of math conventions
+        dy = -src_pos[1] + self._source_anchor_pos[1]
+        dist = math.sqrt(dx ** 2 + dy ** 2)
+        # angle in radians from anchor's zero orientation
+        dist_angle = math.atan2(dy, dx)
+        rel_dist_angle = dist_angle - self._source_anchor_rot
+        target_angle = self._target_anchor_rot + rel_dist_angle
+        return pcbnew.VECTOR2I(
+            self._target_anchor_pos[0] + round(math.cos(target_angle) * dist),
+            self._target_anchor_pos.GetPosition()[1] - round(math.sin(target_angle) * dist)
+        )
+
+    def transform_orientation(self, src_rot: float) -> float:
+        """Given a source rotation, return its rotation in the target"""
+        return src_rot - self._source_anchor_rot
+
+    def transform_flipped(self, src_flipped: bool) -> bool:
+        """Given a source flipped state, return its flipped state in the target"""
+        return (not self._target_anchor_flipped and src_flipped) or \
+            (self._target_anchor_flipped and not src_flipped)
+
+
 class ReplicateSublayout():
     """A class that represents a correspondence between a source board and a target board with anchor footprint
     and replication hierarchy level. The source anchor footprint is determined automatically.
