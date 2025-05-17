@@ -34,8 +34,29 @@ class ReplicateTestCase(unittest.TestCase):
 
     def test_transforms_identity(self):
         board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
-
         sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('U2')
+        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
+        transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
+        for src_footprint, target_footprint in correspondence.mapped_footprints:
+            self.assertEqual(transform.transform(target_footprint.GetPosition()), target_footprint.GetPosition())
+            self.assertEqual(transform.transform_orientation(target_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
+
+    def test_transforms_rot(self):
+        # test a sublayout that is moved and rotated
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_Rot.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('U2')
+        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
+        transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
+        for src_footprint, target_footprint in correspondence.mapped_footprints:
+            self.assertEqual(transform.transform(target_footprint.GetPosition()), target_footprint.GetPosition())
+            self.assertEqual(transform.transform_orientation(target_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
+
+    def test_transforms_flip_rot(self):
+        # test a sublayout that is moved and rotated
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_FlipRot.kicad_pcb'))  # type: pcbnew.BOARD
         anchor = board.FindFootprintByReference('U2')
         correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
         transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
