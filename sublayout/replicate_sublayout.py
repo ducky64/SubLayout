@@ -1,10 +1,51 @@
 import math
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, NamedTuple
 
 import pcbnew
 
 from .board_utils import BoardUtils
 
+
+class FootprintCorrespondence(NamedTuple):
+    """A footprint correspondence between source board (sublayout) and target board footprints.
+    This interface allows for different mappings between sublayout and target boards."""
+    mapped_footprints: List[Tuple[pcbnew.FOOTPRINT, pcbnew.FOOTPRINT]] = []  # source, target
+    source_only_footprints: List[pcbnew.FOOTPRINT] = []
+    target_only_footprints: List[pcbnew.FOOTPRINT] = []
+
+    @staticmethod
+    def by_tstamp(src_board: pcbnew.BOARD, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...],
+                  source_path_prefix: Tuple[str, ...] = ()) -> 'FootprintCorrespondence':
+        """Calculates a footprint correspondence using relative-path tstamps."""
+        mapped_footprints: List[Tuple[pcbnew.FOOTPRINT, pcbnew.FOOTPRINT]] = []
+        target_only_footprints: List[pcbnew.FOOTPRINT] = []
+
+        # calculate source footprints by postfix
+        source_footprints = src_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
+        source_footprint_by_postfix: Dict[Tuple[str, ...], pcbnew.FOOTPRINT] = {}
+        for footprint in source_footprints:
+            if not BoardUtils.footprint_path_startswith(footprint, source_path_prefix):
+                continue  # ignore footprints outside the (optional) hierarchy
+            footprint_postfix = BoardUtils.footprint_path(footprint)[len(source_path_prefix):]
+            assert footprint_postfix not in source_footprint_by_postfix, \
+                f'duplicate footprint in hierarchy in source {footprint.GetReference()}'
+            source_footprint_by_postfix[footprint_postfix] = footprint
+
+        footprints = target_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
+        for footprint in footprints:
+            if not BoardUtils.footprint_path_startswith(footprint, target_path_prefix):
+                continue  # ignore footprints outside the target hierarchy
+            target_postfix = BoardUtils.footprint_path(footprint)[len(target_path_prefix):]
+            if target_postfix in source_footprint_by_postfix:
+                source_footprint = source_footprint_by_postfix[target_postfix]
+                mapped_footprints.append((source_footprint, footprint))
+                del(source_footprint_by_postfix[target_postfix])
+            else:
+                target_only_footprints.append(footprint)
+
+        source_only_footprints = list(source_footprint_by_postfix.values())  # all unused source footprints
+
+        return FootprintCorrespondence(mapped_footprints, source_only_footprints, target_only_footprints)
 
 class ReplicateSublayout():
     """A class that represents a correspondence between a source board and a target board with anchor footprint
@@ -23,61 +64,17 @@ class ReplicateSublayout():
         # self._extra_target_footprints: List[pcbnew.FOOTPRINT] = []
         # self._compute_correspondences()
 
-    def _replicate(self):
-        # find all source footprints in the dest hierarchical group
-        # delete the source group
-        # index footprints by path postfix
-        # otherwise, create a new group as the top-level group
+    def replicate(self):
+        # in this fn:
+        # index tgt footprints by path postfix
+        # if they're all in the same group (LCA) with no other footprints (in other paths),
+        # that becomes the new root group
+        # else create new group
         # iterate through all elements in source board
         # recursively within groups: replicate tracks and stuff
-        # for footprints, move the existing footprint in to new position and into the target group
+        # for footprints, move the existing footprint in to new position and into the t;arget group
+        pass
 
-    def _compute_correspondences(self) -> None:
-        """Computes the correspondences between the source and target footprints.
-        Returns the correspondences (with anchor first), extra source footprints and extra target footprints.
-        Exceptions out if there is any ambiguity, e.g. unable to match the source path prefix.
-
-        Must only be called once."""
-        assert not self._correspondences and not self._extra_source_footprints and not self._extra_target_footprints
-        # calculate source path prefix using the target anchor
-        # iterate through all source footprints to find the correspondence to the anchor
-        source_footprints = self._src_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
-        assert BoardUtils.footprint_path_startswith(self._target_anchor, self._target_path_prefix)
-        target_postfix = BoardUtils.footprint_path(self._target_anchor)[len(self._target_path_prefix):]
-        source_anchor_candidates = []
-        for footprint in source_footprints:
-            footprint_path = BoardUtils.footprint_path(footprint)
-            if len(footprint_path) >= len(target_postfix) and\
-                    footprint_path[len(footprint_path) - len(target_postfix):] == target_postfix:
-                source_anchor_candidates.append(footprint)
-        assert len(source_anchor_candidates) == 1  # TODO better error handling
-        source_anchor = source_anchor_candidates[0]
-        source_prefix = BoardUtils.footprint_path(source_anchor)[:-len(target_postfix)]
-
-        source_footprint_by_postfix: Dict[Tuple[str, ...], pcbnew.FOOTPRINT] = {}
-        # calculate source footprint postfixes, adding those without the right prefix to extra_source_footprints
-        for footprint in source_footprints:
-            if BoardUtils.footprint_path_startswith(footprint, source_prefix):
-                footprint_path = BoardUtils.footprint_path(footprint)
-                footprint_postfix = footprint_path[len(source_prefix):]
-                assert footprint_postfix not in source_footprint_by_postfix, \
-                    f'duplicate footprint in hierarchy in source {footprint.GetReference()}'
-                source_footprint_by_postfix[footprint_postfix] = footprint
-            else:
-                self._extra_source_footprints.append(footprint)
-
-        footprints = self._target_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
-        for footprint in footprints:
-            if not BoardUtils.footprint_path_startswith(footprint, self._target_path_prefix):
-                continue
-            target_postfix = BoardUtils.footprint_path(footprint)[len(self._target_path_prefix):]
-            if target_postfix in source_footprint_by_postfix:
-                source_footprint = source_footprint_by_postfix[target_postfix]
-                if footprint.GetReference() == self._target_anchor.GetReference():  # anchor footprint, add to correspondences first
-                    self._correspondences.insert(0, (source_footprint, footprint))
-                else:
-                    self._correspondences.append((source_footprint, footprint))
-                del(source_footprint_by_postfix[target_postfix])
 
     def _compute_target_position(self, source_pos: pcbnew.VECTOR2I) -> pcbnew.VECTOR2I:
         source_anchor, target_anchor = self._correspondences[0]

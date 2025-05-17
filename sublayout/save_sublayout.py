@@ -6,8 +6,11 @@ from .board_utils import BoardUtils, GroupWrapper
 
 
 class FilterResult(NamedTuple):
-    elts: List[Union[pcbnew.FOOTPRINT, pcbnew.PCB_TRACK, pcbnew.ZONE]]
+    ungrouped_elts: List[Union[pcbnew.FOOTPRINT, pcbnew.PCB_TRACK, pcbnew.ZONE]]
     groups: List[pcbnew.PCB_GROUP]  # groups that are wholly part of the hierarchy
+
+    footprints: List[pcbnew.FOOTPRINT]  # all footprints in the target
+    netcodes: List[int]  # all netcodes in the target group but not elsewhere
 
 
 class HierarchySelector():
@@ -22,7 +25,7 @@ class HierarchySelector():
             board.Add(net)
 
         # clone loose items
-        for elt in result.elts:
+        for elt in result.ungrouped_elts:
             cloned = elt.Duplicate()
             board.Add(cloned)
 
@@ -45,7 +48,7 @@ class HierarchySelector():
 
         # clone groups
         for group in result.groups:
-            if len(result.groups) == 1 and not result.elts:  # group is top-level
+            if len(result.groups) == 1 and not result.ungrouped_elts:  # group is top-level
                 target_group: Optional[pcbnew.PCB_GROUP] = None
             else:
                 target_group = pcbnew.PCB_GROUP(board)
@@ -58,7 +61,7 @@ class HierarchySelector():
         """Deletes all items in the group, except those of the specified types."""
         result = self.get_elts()
 
-        for elt in result.elts:  # delete loose items
+        for elt in result.ungrouped_elts:  # delete loose items
             self._board.Delete(elt)
 
         def delete_group(group: pcbnew.PCB_GROUP) -> None:
@@ -83,6 +86,7 @@ class HierarchySelector():
         exclude_netcodes: Set[int] = set()  # nets that are part of footprints not part of the hierarchy
 
         # footprints and tracks / zones of internal netlists, keyed by group
+        target_footprints: List[pcbnew.FOOTPRINT] = []
         elts_by_group: Dict[GroupWrapper, List[Union[pcbnew.FOOTPRINT, pcbnew.PCB_TRACK, pcbnew.ZONE]]] = {}
         # groups that are not part of the hierarchy, by footprint
         exclude_groups: Set[GroupWrapper] = set()
@@ -95,6 +99,7 @@ class HierarchySelector():
                 for pad in footprint.Pads():  # type: pcbnew.PAD
                     exclude_netcodes.add(pad.GetNetCode())
             else:
+                target_footprints.append(footprint)
                 elts_by_group.setdefault(footprint_group, []).append(footprint)
                 for pad in footprint.Pads():
                     include_netcodes.add(pad.GetNetCode())
@@ -125,4 +130,5 @@ class HierarchySelector():
 
         ungrouped_elts = elts_by_group.pop(GroupWrapper(None), [])
 
-        return FilterResult(ungrouped_elts, list([group._group for group in elts_by_group.keys()]))
+        return FilterResult(ungrouped_elts, list([group._group for group in elts_by_group.keys()]),
+                            target_footprints, list(include_netcodes))

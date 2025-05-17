@@ -107,7 +107,7 @@ class SubLayoutFrame(wx.Frame):
             selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
             result = HierarchySelector(self._board, selected_path_comps).get_elts()
             self._highlighter.clear()
-            self._highlighter.highlight(result.elts + result.groups)
+            self._highlighter.highlight(result.ungrouped_elts + result.groups)
             self._save_button.Enable()
             self._restore_button.Enable()
             pcbnew.Refresh()

@@ -39,7 +39,7 @@ class SaveTestCase(unittest.TestCase):
         src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
         selector = HierarchySelector(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1])
         result = selector.get_elts()
-        self.assertEqual(len(result.elts), 0)  # no loose elts
+        self.assertEqual(len(result.ungrouped_elts), 0)  # no loose elts
         self.assertEqual(len(result.groups), 1)  # main group only
         self.assertEqual(GroupWrapper(result.groups[0]).sorted_footprint_refs(), ('J1', ))  # direct contents only
         board = selector.create_sublayout()
