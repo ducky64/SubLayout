@@ -139,9 +139,7 @@ class SubLayoutFrame(wx.Frame):
                 wx.MessageBox("Failed to load sublayout board.", "Error", wx.OK | wx.ICON_ERROR)
                 return
             restore = ReplicateSublayout(sublayout_board, self._board, self._footprints[0], selected_path_comps)
-            restore.replicate_footprints()  # TODO checkboxes
-            restore.replicate_tracks()
-            restore.replicate_zones()
+            restore.replicate()
             pcbnew.Refresh()
             self.Close()
         except Exception as e:

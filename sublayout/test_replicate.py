@@ -39,7 +39,7 @@ class ReplicateTestCase(unittest.TestCase):
                                       target_board.FindFootprintByReference(target_anchor_ref))
         for src_footprint, target_footprint in correspondence.mapped_footprints:
             self.assertEqual(transform.transform(src_footprint.GetPosition()), target_footprint.GetPosition())
-            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians(), src_footprint.GetSide() != 0), target_footprint.GetOrientation().AsRadians())
+            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
             self.assertEqual(transform.transform_flipped(src_footprint.GetSide() != 0), target_footprint.GetSide() != 0)
 
     def test_transforms_identity(self):

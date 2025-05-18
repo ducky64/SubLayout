@@ -89,7 +89,7 @@ class PositionTransform():
             self._target_anchor_pos[1] - round(math.sin(target_angle) * dist)
         )
 
-    def transform_orientation(self, src_rot: float, src_flipped: bool) -> float:
+    def transform_orientation(self, src_rot: float) -> float:
         """Given a source rotation (as radians), return its rotation (as radians) in the target"""
         rot = src_rot - self._source_anchor_rot
         if self._target_anchor_flipped != self._source_anchor_flipped:
@@ -129,6 +129,8 @@ class ReplicateSublayout():
         assert self._source_anchor is not None, "could not find source anchor footprint in source board"
         self._transform = PositionTransform(self._source_anchor, target_anchor)
 
+    # TODO delete previous
+
     def replicate(self):
         # if they're all in the same group (LCA) with no other footprints (in other paths),
         target_footprints = [target_footprint for src_footprint, target_footprint
@@ -143,93 +145,45 @@ class ReplicateSublayout():
             target_group = pcbnew.PCB_GROUP(self._target_board)
             self._target_board.Add(target_group)
 
-        # iterate through all elements in source board, by group, replicating tracks and stuff
+        # iterate through all elements in source board, by group, replicating tracks and stuff, recursively
         target_footprint_by_src_tstamp = {
             BoardUtils.footprint_path(src_footprint): target_footprint
             for src_footprint, target_footprint in self._correspondences.mapped_footprints
         }
-        def recurse_group(source_group: Union[pcbnew.BOARD, pcbnew.PCB_GROUP],
+        def recurse_group(source_group: Union[pcbnew.PCB_GROUP, pcbnew.BOARD],
                           target_group: pcbnew.PCB_GROUP) -> None:
-            for item in source_group.GetItems():
+            if isinstance(source_group, pcbnew.BOARD):  # board does not provide GetItems() for top
+                groups = [group for group in source_group.Groups()]
+                footprints = [item for item in source_group.GetFootprints()]
+                tracks = [item for item in source_group.GetTracks()]
+                zones = [source_group.GetArea(i) for i in range(source_group.GetAreaCount())]
+                items = [item for item in groups + footprints + tracks + zones
+                         if item.GetParentGroup() is None]
+            else:
+                items = source_group.GetItems()
+
+            for item in items:
                 if isinstance(item, pcbnew.PCB_GROUP):
                     new_group = pcbnew.PCB_GROUP(self._target_board)
                     self._target_board.Add(new_group)
                     target_group.AddItem(new_group)
                     recurse_group(item, new_group)
-                elif isinstance(item, pcbnew.FOOTPRINT):
-                    pass
-                elif isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):
-                    # TODO IMPLEMENT ME
-                    # TODO: zones: fix netcode
+                elif isinstance(item, pcbnew.FOOTPRINT):  # move footprints without replacing
+                    target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(item))
+                    if target_footprint is None:
+                        continue
+                    target_footprint.SetParentGroup(target_group)
+                    target_footprint.SetPosition(self._transform.transform(item.GetPosition()))
+                    target_footprint.SetOrientationDegrees(self._transform.transform_orientation(
+                        item.GetOrientation().AsRadians()) * 180 / math.pi)
+                    target_footprint.SetLayerAndFlip(self._transform.transform_flipped(item.GetSide() != 0))
+                elif isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):  # duplicate everything e;se
+                    cloned_item = item.Duplicate()
+                    self._target_board.Add(cloned_item)
+                    target_group.AddItem(cloned_item)
+                    if isinstance(item, pcbnew.ZONE):  # need to explicitly assign zone netcodes
+                        pass
+                        # TODO fix netcodes
                 else:
                     raise ValueError(f'unsupported item type {type(item)} in group {source_group.GetName()}')
         recurse_group(self._src_board, target_group)
-
-        # recursively within groups: replicate tracks and stuff
-        # for footprints, move the existing footprint in to new position and into the t;arget group
-        pass
-
-
-    def _compute_target_position(self, source_pos: pcbnew.VECTOR2I) -> pcbnew.VECTOR2I:
-        source_anchor, target_anchor = self._correspondences[0]
-        dx = source_pos[0] - source_anchor.GetPosition()[0]
-        # kicad uses computer graphics coordinates, which has Y increasing downwards, opposite of math conventions
-        dy = -source_pos[1] + source_anchor.GetPosition()[1]
-        dist = math.sqrt(dx ** 2 + dy ** 2)
-        # angle in radians from anchor's zero orientation
-        dist_angle = math.atan2(dy, dx)
-        rel_dist_angle = dist_angle - source_anchor.GetOrientation().AsRadians()
-        target_angle = target_anchor.GetOrientation().AsRadians() + rel_dist_angle
-        return pcbnew.VECTOR2I(
-            target_anchor.GetPosition()[0] + round(math.cos(target_angle) * dist),
-            target_anchor.GetPosition()[1] - round(math.sin(target_angle) * dist)
-        )
-
-    def _compute_target_footprint(self, source_footprint: pcbnew.FOOTPRINT) -> Tuple[bool, pcbnew.VECTOR2I, float]:
-        """Returns the target position for the source footprint, given the source and target anchors.
-        Position is returned as (flipped, x, y, rot), with x, y in KiCad units in target absolute board space,
-        and rot in radians."""
-        source_anchor, target_anchor = self._correspondences[0]
-        rel_flipped = source_footprint.GetSide() != source_anchor.GetSide()
-        flipped = (target_anchor.GetSide() == 0 and rel_flipped) or \
-                  (target_anchor.GetSide() != 0 and not rel_flipped)
-        rel_orientation = source_footprint.GetOrientation().AsRadians() - source_anchor.GetOrientation().AsRadians()
-
-        return (flipped,
-                self._compute_target_position(source_footprint.GetPosition()),
-                target_anchor.GetOrientation().AsRadians() + rel_orientation)
-
-    def replicate_footprints(self) -> None:
-        """Replicates the footprints with the given footprint correspondences, as tuples of (source footprint, target footprint).
-        The first correspondence are the anchor footprints, the rest are the footprints to be replicated."""
-        for source_footprint, target_footprint in self._correspondences[1:]:
-            tgt_flipped, tgt_pos, tgt_rot = self._compute_target_footprint(source_footprint)
-            if tgt_flipped:
-                target_footprint.SetLayerAndFlip(pcbnew.B_Cu)
-            else:
-                target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
-            target_footprint.SetPosition(tgt_pos)
-            target_footprint.SetOrientationDegrees(tgt_rot * 180 / math.pi)
-
-    def replicate_tracks(self) -> None:
-        """Replicates the tracks from the source board to the target board."""
-        for track in self._src_board.GetTracks():  # type: pcbnew.PCB_TRACK
-            target_track = track.Duplicate()  # type: pcbnew.PCB_TRACK
-            self._target_board.Add(target_track)
-            target_track.SetStart(self._compute_target_position(track.GetStart()))
-            target_track.SetEnd(self._compute_target_position(track.GetEnd()))
-            # TODO update netcodes
-
-    def replicate_zones(self) -> None:
-        """Replicates the zones from the source board to the target board."""
-        for zone_id in range(self._src_board.GetAreaCount()):
-            zone = self._src_board.GetArea(zone_id)  # type: pcbnew.ZONE
-            target_zone = zone.Duplicate()  # type: pcbnew.ZONE
-            self._target_board.Add(target_zone)
-            for corner_id in range(target_zone.GetNumCorners()):
-                target_zone.SetCornerPosition(
-                    corner_id,
-                    self._compute_target_position(zone.GetCornerPosition(corner_id)))
-            target_zone.SetNetCode(0)
-            target_zone.UnFill()
-            # TODO update netcodes
