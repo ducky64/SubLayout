@@ -172,7 +172,10 @@ class ReplicateSublayout():
                     target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(item))
                     if target_footprint is None:
                         continue
+
+                    target_group.AddItem(target_footprint)
                     target_footprint.SetParentGroup(target_group)
+
                     target_footprint.SetPosition(self._transform.transform(item.GetPosition()))
                     target_footprint.SetOrientationDegrees(self._transform.transform_orientation(
                         item.GetOrientation().AsRadians()) * 180 / math.pi)
@@ -184,8 +187,15 @@ class ReplicateSublayout():
                     cloned_item = item.Duplicate()
                     self._target_board.Add(cloned_item)
                     target_group.AddItem(cloned_item)
+                    cloned_item.SetParentGroup(target_group)
+
+                    # fix coordinates
+                    if isinstance(item, pcbnew.PCB_TRACK):  # need to explicitly assign zone netcodes
+                        cloned_item.SetStart(self._transform.transform(item.GetStart()))
+                        cloned_item.SetEnd(self._transform.transform(item.GetEnd()))
                     if isinstance(item, pcbnew.ZONE):  # need to explicitly assign zone netcodes
-                        pass
+                        for i in range(item.GetNumCorners()):
+                            cloned_item.SetCornerPosition(i, self._transform.transform(item.GetCornerPosition(i)))
                         # TODO fix netcodes
                 else:
                     raise ValueError(f'unsupported item type {type(item)} in group {source_group.GetName()}')
