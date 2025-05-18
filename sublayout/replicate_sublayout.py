@@ -1,5 +1,5 @@
 import math
-from typing import Tuple, List, Dict, NamedTuple, Set
+from typing import Tuple, List, Dict, NamedTuple, Set, Optional, Union
 
 import pcbnew
 
@@ -119,12 +119,21 @@ class ReplicateSublayout():
         self._target_anchor = target_anchor
         self._target_path_prefix = target_path_prefix
 
+        self._correspondences = FootprintCorrespondence.by_tstamp(self._src_board, self._target_board,
+                                                                  self._target_path_prefix)
+        correspondences_by_tstamp = {
+            BoardUtils.footprint_path(target_footprint): src_footprint
+            for src_footprint, target_footprint in self._correspondences.mapped_footprints
+        }
+        self._source_anchor = correspondences_by_tstamp.get(BoardUtils.footprint_path(self._target_anchor))
+        assert self._source_anchor is not None, "could not find source anchor footprint in source board"
+        self._transform = PositionTransform(self._source_anchor, target_anchor)
+
     def replicate(self):
-        correspondences = FootprintCorrespondence.by_tstamp(self._src_board, self._target_board,
-                                                            self._target_path_prefix)
         # if they're all in the same group (LCA) with no other footprints (in other paths),
-        target_footprints = [target_footprint for src_footprint, target_footprint in correspondences.mapped_footprints]\
-            + correspondences.target_only_footprints
+        target_footprints = [target_footprint for src_footprint, target_footprint
+                             in self._correspondences.mapped_footprints]\
+            + self._correspondences.target_only_footprints
         target_groups = [GroupWrapper(target_footprint.GetParentGroup()) for target_footprint in target_footprints]
         target_groups_lca = GroupWrapper.lowest_common_ancestor(target_groups)
 
@@ -134,7 +143,28 @@ class ReplicateSublayout():
             target_group = pcbnew.PCB_GROUP(self._target_board)
             self._target_board.Add(target_group)
 
-        # iterate through all elements in source board
+        # iterate through all elements in source board, by group, replicating tracks and stuff
+        target_footprint_by_src_tstamp = {
+            BoardUtils.footprint_path(src_footprint): target_footprint
+            for src_footprint, target_footprint in self._correspondences.mapped_footprints
+        }
+        def recurse_group(source_group: Union[pcbnew.BOARD, pcbnew.PCB_GROUP],
+                          target_group: pcbnew.PCB_GROUP) -> None:
+            for item in source_group.GetItems():
+                if isinstance(item, pcbnew.PCB_GROUP):
+                    new_group = pcbnew.PCB_GROUP(self._target_board)
+                    self._target_board.Add(new_group)
+                    target_group.AddItem(new_group)
+                    recurse_group(item, new_group)
+                elif isinstance(item, pcbnew.FOOTPRINT):
+                    pass
+                elif isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):
+                    # TODO IMPLEMENT ME
+                    # TODO: zones: fix netcode
+                else:
+                    raise ValueError(f'unsupported item type {type(item)} in group {source_group.GetName()}')
+        recurse_group(self._src_board, target_group)
+
         # recursively within groups: replicate tracks and stuff
         # for footprints, move the existing footprint in to new position and into the t;arget group
         pass
