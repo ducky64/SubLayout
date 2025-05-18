@@ -80,7 +80,10 @@ class PositionTransform():
         # angle in radians from anchor's zero orientation
         dist_angle = math.atan2(dy, dx)
         rel_dist_angle = dist_angle - self._source_anchor_rot
-        target_angle = self._target_anchor_rot + rel_dist_angle
+        if self._target_anchor_flipped == self._source_anchor_flipped:
+            target_angle = self._target_anchor_rot + rel_dist_angle
+        else:
+            target_angle = self._target_anchor_rot - rel_dist_angle
         return pcbnew.VECTOR2I(
             self._target_anchor_pos[0] + round(math.cos(target_angle) * dist),
             self._target_anchor_pos[1] - round(math.sin(target_angle) * dist)
@@ -88,12 +91,17 @@ class PositionTransform():
 
     def transform_orientation(self, src_rot: float) -> float:
         """Given a source rotation (as radians), return its rotation (as radians) in the target"""
-        return (src_rot - self._source_anchor_rot) % (2*math.pi)
+        if self._target_anchor_flipped == self._source_anchor_flipped:
+            return (src_rot - self._source_anchor_rot) % (2*math.pi)
+        else:
+            return -(src_rot - self._source_anchor_rot) % (2*math.pi)
 
     def transform_flipped(self, src_flipped: bool) -> bool:
         """Given a source flipped state, return its flipped state in the target"""
-        return (not self._target_anchor_flipped and src_flipped) or \
-            (self._target_anchor_flipped and not src_flipped)
+        if not self._target_anchor_flipped:  # target on top side
+            return self._source_anchor_flipped != src_flipped
+        else:  # target on bottom side
+            return self._source_anchor_flipped == src_flipped
 
 
 class ReplicateSublayout():
