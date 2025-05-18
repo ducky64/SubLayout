@@ -3,7 +3,7 @@ from typing import Tuple, List, Dict, NamedTuple, Set
 
 import pcbnew
 
-from .board_utils import BoardUtils
+from .board_utils import BoardUtils, GroupWrapper
 
 
 class FootprintCorrespondence(NamedTuple):
@@ -119,17 +119,21 @@ class ReplicateSublayout():
         self._target_anchor = target_anchor
         self._target_path_prefix = target_path_prefix
 
-        # self._correspondences: List[Tuple[pcbnew.FOOTPRINT, pcbnew.FOOTPRINT]] = []
-        # self._extra_source_footprints: List[pcbnew.FOOTPRINT] = []
-        # self._extra_target_footprints: List[pcbnew.FOOTPRINT] = []
-        # self._compute_correspondences()
-
     def replicate(self):
-        # in this fn:
-        # index tgt footprints by path postfix
+        correspondences = FootprintCorrespondence.by_tstamp(self._src_board, self._target_board,
+                                                            self._target_path_prefix)
         # if they're all in the same group (LCA) with no other footprints (in other paths),
-        # that becomes the new root group
-        # else create new group
+        target_footprints = [target_footprint for src_footprint, target_footprint in correspondences.mapped_footprints]\
+            + correspondences.target_only_footprints
+        target_groups = [GroupWrapper(target_footprint.GetParentGroup()) for target_footprint in target_footprints]
+        target_groups_lca = GroupWrapper.lowest_common_ancestor(target_groups)
+
+        if target_groups_lca is not None:
+            target_group = target_groups_lca._group
+        else:  # otherwise, create new group in root
+            target_group = pcbnew.PCB_GROUP(self._target_board)
+            self._target_board.Add(target_group)
+
         # iterate through all elements in source board
         # recursively within groups: replicate tracks and stuff
         # for footprints, move the existing footprint in to new position and into the t;arget group
