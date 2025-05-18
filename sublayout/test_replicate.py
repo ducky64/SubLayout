@@ -82,14 +82,12 @@ class ReplicateTestCase(unittest.TestCase):
         sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         sublayout.replicate()
 
-        # sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'UsbSublayout.kicad_pcb'))
-        # anchor = board.FindFootprintByReference('J1')
-        # sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
-        # sublayout.replicate_footprints()
-        # sublayout.replicate_tracks()
-        # sublayout.replicate_zones()
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'UsbSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('J1')
+        sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
+        sublayout.replicate()
 
-        board.Save('../test_output_replicate.kicad_pcb')
+        board.Save('test_output_replicate.kicad_pcb')
 
     def test_replicate_grouped(self):
         # example that replicates into a target group (instead of creating a new group)
@@ -100,4 +98,4 @@ class ReplicateTestCase(unittest.TestCase):
         sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         sublayout.replicate()
 
-        board.Save('../test_output_replicate_grouped.kicad_pcb')
+        board.Save('test_output_replicate_grouped.kicad_pcb')

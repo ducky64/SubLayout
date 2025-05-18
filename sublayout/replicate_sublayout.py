@@ -176,7 +176,10 @@ class ReplicateSublayout():
                     target_footprint.SetPosition(self._transform.transform(item.GetPosition()))
                     target_footprint.SetOrientationDegrees(self._transform.transform_orientation(
                         item.GetOrientation().AsRadians()) * 180 / math.pi)
-                    target_footprint.SetLayerAndFlip(self._transform.transform_flipped(item.GetSide() != 0))
+                    if self._transform.transform_flipped(item.GetSide() != 0):
+                        target_footprint.SetLayerAndFlip(pcbnew.B_Cu)
+                    else:
+                        target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
                 elif isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):  # duplicate everything e;se
                     cloned_item = item.Duplicate()
                     self._target_board.Add(cloned_item)
