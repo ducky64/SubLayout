@@ -73,7 +73,7 @@ class PositionTransform():
 
     def transform(self, src_pos: pcbnew.VECTOR2I) -> pcbnew.VECTOR2I:
         """Given a source position, return its position in the target"""
-        dx = src_pos[0] - self._target_anchor_pos[0]
+        dx = src_pos[0] - self._source_anchor_pos[0]
         # kicad uses computer graphics coordinates, which has Y increasing downwards, opposite of math conventions
         dy = -src_pos[1] + self._source_anchor_pos[1]
         dist = math.sqrt(dx ** 2 + dy ** 2)
@@ -88,7 +88,7 @@ class PositionTransform():
 
     def transform_orientation(self, src_rot: float) -> float:
         """Given a source rotation (as radians), return its rotation (as radians) in the target"""
-        return src_rot - self._source_anchor_rot
+        return (src_rot - self._source_anchor_rot) % (2*math.pi)
 
     def transform_flipped(self, src_flipped: bool) -> bool:
         """Given a source flipped state, return its flipped state in the target"""

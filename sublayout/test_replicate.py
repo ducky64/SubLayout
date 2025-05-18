@@ -39,8 +39,8 @@ class ReplicateTestCase(unittest.TestCase):
         correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
         transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
         for src_footprint, target_footprint in correspondence.mapped_footprints:
-            self.assertEqual(transform.transform(target_footprint.GetPosition()), target_footprint.GetPosition())
-            self.assertEqual(transform.transform_orientation(target_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
+            self.assertEqual(transform.transform(src_footprint.GetPosition()), target_footprint.GetPosition())
+            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
 
     def test_transforms_rot(self):
         # test a sublayout that is moved and rotated
@@ -50,8 +50,8 @@ class ReplicateTestCase(unittest.TestCase):
         correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
         transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
         for src_footprint, target_footprint in correspondence.mapped_footprints:
-            self.assertEqual(transform.transform(target_footprint.GetPosition()), target_footprint.GetPosition())
-            self.assertEqual(transform.transform_orientation(target_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
+            self.assertEqual(transform.transform(src_footprint.GetPosition()), target_footprint.GetPosition())
+            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
 
     def test_transforms_flip_rot(self):
         # test a sublayout that is moved and rotated
@@ -61,8 +61,8 @@ class ReplicateTestCase(unittest.TestCase):
         correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
         transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
         for src_footprint, target_footprint in correspondence.mapped_footprints:
-            self.assertEqual(transform.transform(target_footprint.GetPosition()), target_footprint.GetPosition())
-            self.assertEqual(transform.transform_orientation(target_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
+            self.assertEqual(transform.transform(src_footprint.GetPosition()), target_footprint.GetPosition())
+            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
 
 
     # def test_replicate(self):
