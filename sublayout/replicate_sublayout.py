@@ -91,10 +91,13 @@ class PositionTransform():
 
     def transform_orientation(self, src_rot: float, src_flipped: bool) -> float:
         """Given a source rotation (as radians), return its rotation (as radians) in the target"""
-        if self._target_anchor_flipped == self._source_anchor_flipped:
-            return (src_rot - self._source_anchor_rot) % (2*math.pi)
-        else:
-            return -(src_rot - self._source_anchor_rot) % (2*math.pi)
+        rot = src_rot - self._source_anchor_rot
+        if self._target_anchor_flipped != self._source_anchor_flipped:
+            rot = -rot  # account for a flip
+        rot = (self._target_anchor_rot + rot) % (math.pi * 2)
+        if rot > math.pi:
+            rot -= math.pi * 2
+        return rot
 
     def transform_flipped(self, src_flipped: bool) -> bool:
         """Given a source flipped state, return its flipped state in the target"""
