@@ -32,64 +32,47 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertEqual(len(correspondence.source_only_footprints), 1)  # just J1, which is out of scope
         self.assertEqual(len(correspondence.target_only_footprints), 0)
 
-    def test_transforms_identity(self):
-        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
-        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
-        anchor = board.FindFootprintByReference('U2')
-        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
-        transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
+    def check_transform_equality(self, src_board: pcbnew.BOARD, target_board: pcbnew.BOARD, target_anchor_ref: str):
+        anchor = target_board.FindFootprintByReference(target_anchor_ref)
+        correspondence = FootprintCorrespondence.by_tstamp(src_board, target_board, BoardUtils.footprint_path(anchor)[:-1])
+        transform = PositionTransform(src_board.FindFootprintByReference(target_anchor_ref),
+                                      target_board.FindFootprintByReference(target_anchor_ref))
         for src_footprint, target_footprint in correspondence.mapped_footprints:
             self.assertEqual(transform.transform(src_footprint.GetPosition()), target_footprint.GetPosition())
-            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
+            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians(), src_footprint.GetSide() != 0), target_footprint.GetOrientation().AsRadians())
+            self.assertEqual(transform.transform_flipped(src_footprint.GetSide() != 0), target_footprint.GetSide() != 0)
+
+    def test_transforms_identity(self):
+        self.check_transform_equality(
+            pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb')),
+            pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb')),
+            'U2')
 
     def test_transforms_rot(self):
         # test a sublayout that is moved and rotated
-        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
-        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_Rot.kicad_pcb'))  # type: pcbnew.BOARD
-        anchor = board.FindFootprintByReference('U2')
-        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
-        transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
-        for src_footprint, target_footprint in correspondence.mapped_footprints:
-            self.assertEqual(transform.transform(src_footprint.GetPosition()), target_footprint.GetPosition())
-            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
-            self.assertEqual(transform.transform_flipped(src_footprint.GetSide() != 0), target_footprint.GetSide() != 0)
+        self.check_transform_equality(
+            pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_Rot.kicad_pcb')),
+            pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb')),
+            'U2')
 
     def test_transforms_flips(self):
         # test a sublayout that is moved and rotated
-        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
-        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_FlipRot.kicad_pcb'))  # type: pcbnew.BOARD
-        anchor = board.FindFootprintByReference('U2')
-        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
-        transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
-        for src_footprint, target_footprint in correspondence.mapped_footprints:
-            self.assertEqual(transform.transform(src_footprint.GetPosition()), target_footprint.GetPosition())
-            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
-            self.assertEqual(transform.transform_flipped(src_footprint.GetSide() != 0), target_footprint.GetSide() != 0)
+        self.check_transform_equality(
+            pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_FlipRot.kicad_pcb')),
+            pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb')),
+            'U2')
 
         # test with target flipped and sublayout not
-        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_FlipRot.kicad_pcb'))  # type: pcbnew.BOARD
-        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb'))  # type: pcbnew.BOARD
-        anchor = board.FindFootprintByReference('U2')
-        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
-        transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
-        for src_footprint, target_footprint in correspondence.mapped_footprints:
-            print(f"{src_footprint.GetReference()}")
-            self.assertEqual(transform.transform(src_footprint.GetPosition()), target_footprint.GetPosition())
-            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
-            self.assertEqual(transform.transform_flipped(src_footprint.GetSide() != 0), target_footprint.GetSide() != 0)
+        self.check_transform_equality(
+            pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout.kicad_pcb')),
+            pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_FlipRot.kicad_pcb')),
+            'U2')
 
         # test with target flipped and sublayout flipped
-        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_FlipRot.kicad_pcb'))  # type: pcbnew.BOARD
-        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_FlipRot.kicad_pcb'))  # type: pcbnew.BOARD
-        anchor = board.FindFootprintByReference('U2')
-        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
-        transform = PositionTransform(sublayout_board.FindFootprintByReference('U2'), board.FindFootprintByReference('U2'))
-        for src_footprint, target_footprint in correspondence.mapped_footprints:
-            self.assertEqual(transform.transform(src_footprint.GetPosition()), target_footprint.GetPosition())
-            self.assertEqual(transform.transform_orientation(src_footprint.GetOrientation().AsRadians()), target_footprint.GetOrientation().AsRadians())
-            self.assertEqual(transform.transform_flipped(src_footprint.GetSide() != 0), target_footprint.GetSide() != 0)
-
-
+        self.check_transform_equality(
+            pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_FlipRot.kicad_pcb')),
+            pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_FlipRot.kicad_pcb')),
+            'U2')
 
     # def test_replicate(self):
     #     board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'BareBlinkyComplete.kicad_pcb'))  # type: pcbnew.BOARD

@@ -89,7 +89,7 @@ class PositionTransform():
             self._target_anchor_pos[1] - round(math.sin(target_angle) * dist)
         )
 
-    def transform_orientation(self, src_rot: float) -> float:
+    def transform_orientation(self, src_rot: float, src_flipped: bool) -> float:
         """Given a source rotation (as radians), return its rotation (as radians) in the target"""
         if self._target_anchor_flipped == self._source_anchor_flipped:
             return (src_rot - self._source_anchor_rot) % (2*math.pi)
