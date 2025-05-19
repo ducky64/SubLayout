@@ -1,4 +1,5 @@
 import os
+import traceback
 from typing import List
 
 import pcbnew
@@ -68,16 +69,22 @@ class SubLayoutFrame(wx.Frame):
         self._hierarchy_list = wx.ListBox(panel, style=wx.LB_SINGLE)
         self._hierarchy_list.Bind(wx.EVT_LISTBOX, self._on_select_hierarchy)
         sizer.Add(self._hierarchy_list, 1, wx.EXPAND | wx.ALL)
-        #
+
+        self._purge_restore = wx.CheckBox(panel, label="Clear tracks on restore")
+        self._purge_restore.SetValue(True)
+        sizer.Add(self._purge_restore, 0, wx.ALL | wx.ALIGN_CENTER)
+
+        button_bar = wx.BoxSizer(wx.HORIZONTAL)
         self._restore_button = wx.Button(panel, label="Restore")
         self._restore_button.Bind(wx.EVT_BUTTON, self._on_restore)
         self._restore_button.Disable()
-        sizer.Add(self._restore_button, 0, wx.ALL | wx.ALIGN_CENTER)
+        button_bar.Add(self._restore_button, 0, wx.ALL | wx.ALIGN_CENTER)
 
         self._save_button = wx.Button(panel, label="Save")
         self._save_button.Bind(wx.EVT_BUTTON, self._on_save)
         self._save_button.Disable()
-        sizer.Add(self._save_button, 0, wx.ALL | wx.ALIGN_CENTER)
+        button_bar.Add(self._save_button, 0, wx.ALL | wx.ALIGN_CENTER)
+        sizer.Add(button_bar, 0, wx.ALL | wx.ALIGN_CENTER)
 
         panel.SetSizer(sizer)
 
@@ -112,7 +119,8 @@ class SubLayoutFrame(wx.Frame):
             self._restore_button.Enable()
             pcbnew.Refresh()
         except Exception as e:
-            wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
+            traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+            wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
 
     def _on_close(self, event: wx.CommandEvent) -> None:
         self._highlighter.clear()
@@ -141,9 +149,11 @@ class SubLayoutFrame(wx.Frame):
             restore = ReplicateSublayout(sublayout_board, self._board, self._footprints[0], selected_path_comps)
             restore.replicate()
             pcbnew.Refresh()
+
             self.Close()
         except Exception as e:
-            wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
+            traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+            wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
 
     def _on_save(self, event: wx.CommandEvent) -> None:
         try:
@@ -160,7 +170,8 @@ class SubLayoutFrame(wx.Frame):
 
             sublayout_board.Save(dlg.GetPath())
         except Exception as e:
-            wx.MessageBox(f"Error: {e}", "Error", wx.OK | wx.ICON_ERROR)
+            traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+            wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
 
 
 class SubLayout(pcbnew.ActionPlugin):

@@ -55,3 +55,10 @@ class SaveTestCase(unittest.TestCase):
         self.assertIsNotNone(src_board.FindFootprintByReference('R2'))
         self.assertIsNone(src_board.FindFootprintByReference('J1').GetParentGroup())
         src_board.Save('test_output_deletedusb.kicad_pcb')
+
+    def test_get_ungrouped(self):
+        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'BareBlinkyComplete.kicad_pcb'))
+        selector = HierarchySelector(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1])
+        result = selector.get_elts()
+        self.assertEqual(len(result.ungrouped_elts), 3)  # 3 footprints
+        self.assertEqual(len(result.groups), 0)  # no groups

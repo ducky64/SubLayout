@@ -116,19 +116,19 @@ class HierarchySelector():
                 elts_by_group.setdefault(track_group, []).append(zone)
 
         # for exclude_groups in elts_by_group, move them to the None group
-        for group in elts_by_group:
-            if group in exclude_groups:
+        for group in list(elts_by_group.keys()):  # copy keys to avoid modify-on-iteration
+            if group in exclude_groups and group != GroupWrapper(None):
                 elts_by_group.setdefault(GroupWrapper(None), []).extend(elts_by_group[group])
                 # TODO warn on overlap include/exclude groups
                 del elts_by_group[group]
+
+        ungrouped_elts = elts_by_group.pop(GroupWrapper(None), [])
 
         # prune groups with highest covering group
         covering_groups = GroupWrapper.highest_covering_groups(list(elts_by_group.keys()))
         for group in list(elts_by_group.keys()):
             if group not in covering_groups:
                 del elts_by_group[group]
-
-        ungrouped_elts = elts_by_group.pop(GroupWrapper(None), [])
 
         return FilterResult(ungrouped_elts, list([group._group for group in elts_by_group.keys()]),
                             target_footprints, list(include_netcodes))

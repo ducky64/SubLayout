@@ -214,7 +214,7 @@ class ReplicateSublayout():
                         target_footprint.SetLayerAndFlip(pcbnew.B_Cu)
                     else:
                         target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
-                elif isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):  # duplicate everything e;se
+                elif isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):  # duplicate everything else
                     cloned_item = item.Duplicate()
                     self._target_board.Add(cloned_item)
                     target_group.AddItem(cloned_item)
