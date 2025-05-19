@@ -143,6 +143,16 @@ class ReplicateSublayout():
         else:
             self._target_group = None
 
+    @staticmethod
+    def _get_netcode_pads(board: pcbnew.BOARD, netcode: int) -> List[Tuple[pcbnew.FOOTPRINT, pcbnew.PAD]]:
+        """Returns all pads in the target board with the given netcode"""
+        pads = []
+        for footprint in board.GetFootprints():
+            for pad in footprint.Pads():
+                if pad.GetNetCode() == netcode:
+                    pads.append((footprint, pad))
+        return pads
+
     def target_lca(self) -> Optional[pcbnew.PCB_GROUP]:
         """Returns the lowest common ancestor of the target footprints, or None if there is none"""
         return self._target_group
@@ -211,13 +221,25 @@ class ReplicateSublayout():
                     cloned_item.SetParentGroup(target_group)
 
                     # fix coordinates
-                    if isinstance(item, pcbnew.PCB_TRACK):  # need to explicitly assign zone netcodes
+                    if isinstance(cloned_item, pcbnew.PCB_TRACK):  # need to explicitly assign zone netcodes
                         cloned_item.SetStart(self._transform.transform(item.GetStart()))
                         cloned_item.SetEnd(self._transform.transform(item.GetEnd()))
-                    if isinstance(item, pcbnew.ZONE):  # need to explicitly assign zone netcodes
+                    if isinstance(cloned_item, pcbnew.ZONE):  # need to explicitly assign zone netcodes
+                        cloned_item.UnFill()
                         for i in range(item.GetNumCorners()):
                             cloned_item.SetCornerPosition(i, self._transform.transform(item.GetCornerPosition(i)))
-                        # TODO fix netcodes
+                        src_netcode_pads = self._get_netcode_pads(self._src_board, item.GetNetCode())
+                        target_netcodes: Set[int] = set()
+                        for footprint, pad in src_netcode_pads:
+                            target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(footprint))
+                            if target_footprint is None:  # ignore
+                                continue
+                            target_pad = target_footprint.FindPadByNumber(pad.GetNumber())  # type: pcbnew.PAD
+                            target_netcodes.add(target_pad.GetNetCode())
+                        if len(target_netcodes) == 1:
+                            cloned_item.SetNetCode(list(target_netcodes)[0])
+                        else:
+                            print("conflicting netcodes found for zone")  # TODO more debug info
                 else:
                     raise ValueError(f'unsupported item type {type(item)} in group {source_group.GetName()}')
         recurse_group(self._src_board, target_group)
