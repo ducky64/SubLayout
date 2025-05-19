@@ -140,7 +140,6 @@ class ReplicateSublayout():
             [BoardUtils.footprint_path_startswith(item, self._target_path_prefix)
              for item in target_groups_lca.recursive_items() if isinstance(item, pcbnew.FOOTPRINT)]):
             self._target_group: Optional[pcbnew.PCB_GROUP] = target_groups_lca._group
-            self.purge_lca()  # TODO make this optional
         else:
             self._target_group = None
 
@@ -149,7 +148,7 @@ class ReplicateSublayout():
         return self._target_group
 
     def purge_lca(self) -> None:
-        """Deletes replicate-able items from the LCA"""
+        """Deletes replicate-able items (excluding footprints) from the LCA"""
         def recurse_group(group: pcbnew.PCB_GROUP) -> None:
             """Recursively deletes all items in the group."""
             for item in group.GetItems():
