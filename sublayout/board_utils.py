@@ -94,6 +94,16 @@ class GroupWrapper():
         else:
             self._key = None
 
+    def recursive_items(self):
+        """Recursively yields all items in the group and its subgroups"""
+        if self._group is None:
+            return
+        for item in self._group.GetItems():
+            if isinstance(item, pcbnew.PCB_GROUP):
+                yield from GroupWrapper(item).recursive_items()
+            else:
+                yield item
+
     def sorted_footprint_refs(self) -> Tuple[str, ...]:
         """Returns the sorted footprint references in the group"""
         if self._group is None:

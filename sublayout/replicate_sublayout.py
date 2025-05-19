@@ -129,18 +129,40 @@ class ReplicateSublayout():
         assert self._source_anchor is not None, "could not find source anchor footprint in source board"
         self._transform = PositionTransform(self._source_anchor, target_anchor)
 
-    # TODO delete previous
-
-    def replicate(self):
-        # if they're all in the same group (LCA) with no other footprints (in other paths),
+        # find LCA (if exists) based on footprints
         target_footprints = [target_footprint for src_footprint, target_footprint
-                             in self._correspondences.mapped_footprints]\
-            + self._correspondences.target_only_footprints
+                             in self._correspondences.mapped_footprints] \
+                            + self._correspondences.target_only_footprints
         target_groups = [GroupWrapper(target_footprint.GetParentGroup()) for target_footprint in target_footprints]
         target_groups_lca = GroupWrapper.lowest_common_ancestor(target_groups)
 
-        if target_groups_lca is not None:
-            target_group = target_groups_lca._group
+        if target_groups_lca is not None and all(
+            [BoardUtils.footprint_path_startswith(item, self._target_path_prefix)
+             for item in target_groups_lca.recursive_items() if isinstance(item, pcbnew.FOOTPRINT)]):
+            self._target_group: Optional[pcbnew.PCB_GROUP] = target_groups_lca._group
+            self.purge_lca()  # TODO make this optional
+        else:
+            self._target_group = None
+
+    def target_lca(self) -> Optional[pcbnew.PCB_GROUP]:
+        """Returns the lowest common ancestor of the target footprints, or None if there is none"""
+        return self._target_group
+
+    def purge_lca(self) -> None:
+        """Deletes replicate-able items from the LCA"""
+        def recurse_group(group: pcbnew.PCB_GROUP) -> None:
+            """Recursively deletes all items in the group."""
+            for item in group.GetItems():
+                if isinstance(item, pcbnew.PCB_GROUP):
+                    recurse_group(item)
+                if isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):
+                    self._target_board.Delete(item)
+        if self._target_group is not None:
+            recurse_group(self._target_group)
+
+    def replicate(self):
+        if self._target_group is not None:
+            target_group = self._target_group
         else:  # otherwise, create new group in root
             target_group = pcbnew.PCB_GROUP(self._target_board)
             self._target_board.Add(target_group)
