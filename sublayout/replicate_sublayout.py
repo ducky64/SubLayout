@@ -106,6 +106,9 @@ class PositionTransform():
         else:  # target on bottom side
             return self._source_anchor_flipped == src_flipped
 
+    def relative_flipped(self) -> bool:
+        return self._source_anchor_flipped != self._target_anchor_flipped
+
 
 class ReplicateSublayout():
     """A class that represents a correspondence between a source board and a target board with anchor footprint
@@ -241,11 +244,23 @@ class ReplicateSublayout():
                                 continue
                             target_pad = target_footprint.FindPadByNumber(pad.GetNumber())  # type: pcbnew.PAD
                             target_netcodes.add(target_pad.GetNetCode())
-                        # TODO handle layers
                         if len(target_netcodes) == 1:
                             cloned_item.SetNetCode(list(target_netcodes)[0])
                         else:
                             print("conflicting netcodes found for zone")  # TODO more debug info
+
+                        # flip layers if needed
+                        layers = item.GetLayerSet()  # type: pcbnew.LSET
+                        if (layers.Contains(pcbnew.F_Cu) or layers.Contains(pcbnew.B_Cu)) and \
+                            self._transform.relative_flipped():
+                            cloned_layers = cloned_item.GetLayerSet()  # type: pcbnew.LSET
+                            cloned_layers.RemoveLayer(pcbnew.F_Cu)
+                            cloned_layers.RemoveLayer(pcbnew.B_Cu)
+                            if layers.Contains(pcbnew.F_Cu):
+                                cloned_layers.AddLayer(pcbnew.B_Cu)
+                            if layers.Contains(pcbnew.B_Cu):
+                                cloned_layers.AddLayer(pcbnew.F_Cu)
+                            cloned_item.SetLayerSet(cloned_layers)
                 else:
                     raise ValueError(f'unsupported item type {type(item)} in group {source_group.GetName()}')
         recurse_group(self._src_board, target_group)
