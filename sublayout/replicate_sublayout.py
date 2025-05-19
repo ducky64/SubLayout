@@ -224,6 +224,11 @@ class ReplicateSublayout():
                     if isinstance(cloned_item, pcbnew.PCB_TRACK):  # need to explicitly assign zone netcodes
                         cloned_item.SetStart(self._transform.transform(item.GetStart()))
                         cloned_item.SetEnd(self._transform.transform(item.GetEnd()))
+                        if item.GetLayer() in (pcbnew.F_Cu, pcbnew.B_Cu):  # flip non-internal layers
+                            if self._transform.transform_flipped(item.GetLayer() == pcbnew.B_Cu):
+                                cloned_item.SetLayer(pcbnew.B_Cu)
+                            else:
+                                cloned_item.SetLayer(pcbnew.F_Cu)
                     if isinstance(cloned_item, pcbnew.ZONE):  # need to explicitly assign zone netcodes
                         cloned_item.UnFill()
                         for i in range(item.GetNumCorners()):
@@ -236,6 +241,7 @@ class ReplicateSublayout():
                                 continue
                             target_pad = target_footprint.FindPadByNumber(pad.GetNumber())  # type: pcbnew.PAD
                             target_netcodes.add(target_pad.GetNetCode())
+                        # TODO handle layers
                         if len(target_netcodes) == 1:
                             cloned_item.SetNetCode(list(target_netcodes)[0])
                         else:
