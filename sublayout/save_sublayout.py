@@ -116,8 +116,8 @@ class HierarchySelector():
                 elts_by_group.setdefault(track_group, []).append(zone)
 
         # for exclude_groups in elts_by_group, move them to the None group
-        for group in exclude_groups:
-            if group in elts_by_group:
+        for group in elts_by_group:
+            if group in exclude_groups:
                 elts_by_group.setdefault(GroupWrapper(None), []).extend(elts_by_group[group])
                 # TODO warn on overlap include/exclude groups
                 del elts_by_group[group]
