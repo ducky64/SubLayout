@@ -16,7 +16,9 @@ class FilterResult(NamedTuple):
 class HierarchySelector():
     def create_sublayout(self) -> pcbnew.BOARD:
         """Creates a (copy) board with only the hierarchical elements, preserving group structure."""
-        board = pcbnew.CreateEmptyBoard()  # type: pcbnew.BOARD
+        # board = pcbnew.CreateEmptyBoard()  # type: pcbnew.BOARD
+        board = pcbnew.NewBoard("test.kicad_pcb")  # type: pcbnew.BOARD
+        assert board is not None
         result = self.get_elts()
 
         # the new board does not have nets, add the nets so items retain connectivity

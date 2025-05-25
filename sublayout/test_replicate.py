@@ -81,13 +81,15 @@ class ReplicateTestCase(unittest.TestCase):
         anchor = board.FindFootprintByReference('U2')
         sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         self.assertIsNone(sublayout.target_lca())
-        sublayout.replicate()
+        result = sublayout.replicate()
+        self.assertFalse(result.get_error_strs())
 
         sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'UsbSublayout.kicad_pcb'))
         anchor = board.FindFootprintByReference('J1')
         sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         self.assertIsNone(sublayout.target_lca())
-        sublayout.replicate()
+        result = sublayout.replicate()
+        self.assertFalse(result.get_error_strs())
 
         board.Save('test_output_replicate.kicad_pcb')
 
@@ -100,6 +102,7 @@ class ReplicateTestCase(unittest.TestCase):
         sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         self.assertIsNotNone(sublayout.target_lca())
         sublayout.purge_lca()
-        sublayout.replicate()
+        result = sublayout.replicate()
+        self.assertFalse(result.get_error_strs())
 
         board.Save('test_output_replicate_grouped.kicad_pcb')

@@ -110,6 +110,34 @@ class PositionTransform():
         return self._source_anchor_flipped != self._target_anchor_flipped
 
 
+class ReplicateResult(NamedTuple):
+    """Result of replicate, including nonfatal errors"""
+    target_group: pcbnew.PCB_GROUP
+
+    target_footprints_missing_source: List[pcbnew.FOOTPRINT] = []
+    source_footprints_unused: List[pcbnew.FOOTPRINT] = []
+    zones_missing_netcode: List[pcbnew.ZONE] = []
+    tracks_missing_netcode: List[pcbnew.PCB_TRACK] = []
+
+    def get_error_strs(self) -> List[str]:
+        """Returns (nonfatal) errors during replication as a list of strings, to propagate to the user.
+        Empty list means no errors encountered."""
+        error_strs = []
+        if self.target_footprints_missing_source:
+            fp_refs = ', '.join([fp.GetReference() for fp in self.target_footprints_missing_source])
+            error_strs.append(f"{len(self.target_footprints_missing_source)} target footprints missing source: {fp_refs}")
+        if self.source_footprints_unused:
+            fp_refs = ', '.join([fp.GetReference() for fp in self.source_footprints_unused])
+            error_strs.append(f"{len(self.source_footprints_unused)} source footprints unused: {fp_refs}")
+        if self.zones_missing_netcode:
+            net_names = ', '.join(sorted(list(set([zone.GetNet().GetNetname() for zone in self.zones_missing_netcode]))))
+            error_strs.append(f"{len(self.zones_missing_netcode)} zones failed to replicate nets: {net_names}")
+        if self.tracks_missing_netcode:
+            net_names = ', '.join(sorted(list(set([track.GetNet().GetNetname() for track in self.tracks_missing_netcode]))))
+            error_strs.append(f"{len(self.tracks_missing_netcode)} tracks failed to replicate nets: {net_names}")
+        return error_strs
+
+
 class ReplicateSublayout():
     """A class that represents a correspondence between a source board and a target board with anchor footprint
     and replication hierarchy level. The source anchor footprint is determined automatically.
@@ -172,12 +200,15 @@ class ReplicateSublayout():
         if self._target_group is not None:
             recurse_group(self._target_group)
 
-    def replicate(self):
+    def replicate(self) -> ReplicateResult:
         if self._target_group is not None:
             target_group = self._target_group
         else:  # otherwise, create new group in root
             target_group = pcbnew.PCB_GROUP(self._target_board)
             self._target_board.Add(target_group)
+
+        result = ReplicateResult(target_group)
+        result.source_footprints_unused.extend(self._correspondences.source_only_footprints)
 
         # iterate through all elements in source board, by group, replicating tracks and stuff, recursively
         target_footprint_by_src_tstamp = {
@@ -205,6 +236,7 @@ class ReplicateSublayout():
                 elif isinstance(item, pcbnew.FOOTPRINT):  # move footprints without replacing
                     target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(item))
                     if target_footprint is None:
+                        result.source_footprints_unused.append(item)
                         continue
 
                     target_group.AddItem(target_footprint)
@@ -223,6 +255,24 @@ class ReplicateSublayout():
                     target_group.AddItem(cloned_item)
                     cloned_item.SetParentGroup(target_group)
 
+                    src_netcode_pads = self._get_netcode_pads(self._src_board, item.GetNetCode())
+                    target_netcodes: Set[int] = set()
+                    for footprint, pad in src_netcode_pads:
+                        target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(footprint))
+                        if target_footprint is None:  # ignore
+                            continue
+                        target_pad = target_footprint.FindPadByNumber(pad.GetNumber())  # type: pcbnew.PAD
+                        target_netcodes.add(target_pad.GetNetCode())
+                    if len(target_netcodes) == 1:
+                        cloned_item.SetNetCode(list(target_netcodes)[0])
+                    else:
+                        if isinstance(item, pcbnew.PCB_TRACK):
+                            result.tracks_missing_netcode.append(item)
+                        elif isinstance(item, pcbnew.ZONE):
+                            result.zones_missing_netcode.append(item)
+                        else:
+                            raise TypeError(f"unknown item type of {item} failed to replicate netcode")
+
                     # fix coordinates
                     if isinstance(cloned_item, pcbnew.PCB_TRACK):  # need to explicitly assign zone netcodes
                         cloned_item.SetStart(self._transform.transform(item.GetStart()))
@@ -236,18 +286,6 @@ class ReplicateSublayout():
                         cloned_item.UnFill()
                         for i in range(item.GetNumCorners()):
                             cloned_item.SetCornerPosition(i, self._transform.transform(item.GetCornerPosition(i)))
-                        src_netcode_pads = self._get_netcode_pads(self._src_board, item.GetNetCode())
-                        target_netcodes: Set[int] = set()
-                        for footprint, pad in src_netcode_pads:
-                            target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(footprint))
-                            if target_footprint is None:  # ignore
-                                continue
-                            target_pad = target_footprint.FindPadByNumber(pad.GetNumber())  # type: pcbnew.PAD
-                            target_netcodes.add(target_pad.GetNetCode())
-                        if len(target_netcodes) == 1:
-                            cloned_item.SetNetCode(list(target_netcodes)[0])
-                        else:
-                            print("conflicting netcodes found for zone")  # TODO more debug info
 
                         # flip layers if needed
                         layers = item.GetLayerSet()  # type: pcbnew.LSET
@@ -264,3 +302,5 @@ class ReplicateSublayout():
                 else:
                     raise ValueError(f'unsupported item type {type(item)} in group {source_group.GetName()}')
         recurse_group(self._src_board, target_group)
+
+        return result

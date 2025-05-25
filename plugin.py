@@ -171,6 +171,8 @@ class SubLayoutFrame(wx.Frame):
                 self.Close()
 
             sublayout_board.Save(dlg.GetPath())
+
+            self.Close()
         except Exception as e:
             traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
             wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
