@@ -149,8 +149,14 @@ class SubLayoutFrame(wx.Frame):
             restore = ReplicateSublayout(sublayout_board, self._board, self._footprints[0], selected_path_comps)
             if self._purge_restore.GetValue():
                 restore.purge_lca()
-            restore.replicate()
+            result = restore.replicate()
             pcbnew.Refresh()
+
+            if result.get_error_strs():
+                NEWLINE = '\n'
+                wx.MessageBox(f"Restore succeeded with warnings:\n{NEWLINE.join(result.get_error_strs())}",
+                              "Warning",
+                              wx.OK | wx.ICON_WARNING)
 
             self.Close()
         except Exception as e:
