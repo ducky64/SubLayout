@@ -114,10 +114,10 @@ class ReplicateResult(NamedTuple):
     """Result of replicate, including nonfatal errors"""
     target_group: pcbnew.PCB_GROUP
 
-    target_footprints_missing_source: List[pcbnew.FOOTPRINT] = []
-    source_footprints_unused: List[pcbnew.FOOTPRINT] = []
-    zones_missing_netcode: List[pcbnew.ZONE] = []
-    tracks_missing_netcode: List[pcbnew.PCB_TRACK] = []
+    target_footprints_missing_source: List[pcbnew.FOOTPRINT]
+    source_footprints_unused: List[pcbnew.FOOTPRINT]
+    zones_missing_netcode: List[pcbnew.ZONE]
+    tracks_missing_netcode: List[pcbnew.PCB_TRACK]
 
     def get_error_strs(self) -> List[str]:
         """Returns (nonfatal) errors during replication as a list of strings, to propagate to the user.
@@ -207,8 +207,8 @@ class ReplicateSublayout():
             target_group = pcbnew.PCB_GROUP(self._target_board)
             self._target_board.Add(target_group)
 
-        result = ReplicateResult(target_group)
-        result.source_footprints_unused.extend(self._correspondences.source_only_footprints)
+        result = ReplicateResult(target_group, [], [], [], [])
+        result.target_footprints_missing_source.extend(self._correspondences.target_only_footprints)
 
         # iterate through all elements in source board, by group, replicating tracks and stuff, recursively
         target_footprint_by_src_tstamp = {

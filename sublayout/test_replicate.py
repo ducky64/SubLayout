@@ -106,3 +106,43 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertFalse(result.get_error_strs())
 
         board.Save('test_output_replicate_grouped.kicad_pcb')
+
+    def test_replicate_footprint_error(self):
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))  # type: pcbnew.BOARD
+
+
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_ExtraFootprint.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('U2')
+        sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
+        result = sublayout.replicate()
+        self.assertEqual(len(result.source_footprints_unused), 1)
+        self.assertEqual(len(result.get_error_strs()), 1)
+        self.assertIn('C9001', result.get_error_strs()[0])
+
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_MissingFootprint.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('U2')
+        sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
+        result = sublayout.replicate()
+        self.assertEqual(len(result.target_footprints_missing_source), 2)
+        self.assertEqual(len(result.get_error_strs()), 1)
+        self.assertIn('C3', result.get_error_strs()[0])
+        self.assertIn('C6', result.get_error_strs()[0])
+
+    def test_replicate_net_error(self):
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))  # type: pcbnew.BOARD
+
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_BadNet.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('U2')
+        sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
+        result = sublayout.replicate()
+        self.assertEqual(len(result.tracks_missing_netcode), 1)
+        self.assertEqual(len(result.get_error_strs()), 1)
+        self.assertIn('bad_new_net', result.get_error_strs()[0])
+
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_BadZone.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('U2')
+        sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
+        result = sublayout.replicate()
+        self.assertEqual(len(result.zones_missing_netcode), 1)
+        self.assertEqual(len(result.get_error_strs()), 1)
+        self.assertIn('bad_zone', result.get_error_strs()[0])
