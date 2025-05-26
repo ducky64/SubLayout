@@ -49,6 +49,13 @@ class HighlightManager():
         self._highlighted_items.clear()
 
 
+class SublayoutInitError(Exception):
+    """Non-tracebacking exception during sublayout dialog initialization."""
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
+
+
 class SubLayoutFrame(wx.Frame):
     def __init__(self, parent):
         wx.Frame.__init__(self, parent, title="SubLayout", size=(300, 200))
@@ -63,8 +70,8 @@ class SubLayoutFrame(wx.Frame):
         footprints = self._board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
         self._footprints = [fp for fp in footprints if fp.IsSelected()]
 
-        self._status = wx.StaticText(panel, label="")
-        sizer.Add(self._status, 0, wx.ALL)
+        hierarchy_instruction = wx.StaticText(panel, label="Select hierarchy level")
+        sizer.Add(hierarchy_instruction, 0, wx.ALL)
 
         self._hierarchy_list = wx.ListBox(panel, style=wx.LB_SINGLE)
         self._hierarchy_list.Bind(wx.EVT_LISTBOX, self._on_select_hierarchy)
@@ -93,21 +100,14 @@ class SubLayoutFrame(wx.Frame):
     def _populate_hierarchy(self) -> None:
         self._hierarchy_list.Clear()
 
-        if len(self._footprints) < 1:
-            self._status.SetLabel("Must select anchor footprint(s).")
-            return
+        if len(self._footprints) != 1:
+            raise SublayoutInitError("Must select exactly one anchor footprint.")
 
-        # if one footprint is selected, also allow export mode
-        if len(self._footprints) == 1:
-            self._status.SetLabel("Select hierarchy level")
-            path = BoardUtils.footprint_path(self._footprints[0])
-            for i in range(len(path) - 1):  # ignore leaf path
-                path_comps = path[:i+1]
-                label = '/'.join(self._namer.name_path(path_comps))
-                self._hierarchy_list.Append(label, path_comps)
-        else:
-            self._status.SetLabel("TODO support multiple selected footprints")
-            # TODO allow restore of multiple footprints by finding common sheetfiles with differing sheetnames
+        path = BoardUtils.footprint_path(self._footprints[0])
+        for i in range(len(path) - 1):  # ignore leaf path
+            path_comps = path[:i+1]
+            label = '/'.join(self._namer.name_path(path_comps))
+            self._hierarchy_list.Append(label, path_comps)
 
     def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
         try:
@@ -193,9 +193,17 @@ class SubLayout(pcbnew.ActionPlugin):
         # self.icon_file_name = os.path.join(os.path.dirname(__file__), 'simple_plugin.png') # Optional, defaults to ""
 
     def Run(self):
-        editor = wx.FindWindowByName("PcbFrame")
-        self.frame = SubLayoutFrame(editor)
-        self.frame.Show()
+        try:
+            try:
+                editor = wx.FindWindowByName("PcbFrame")
+                self.frame = SubLayoutFrame(editor)
+            except SublayoutInitError as e:
+                wx.MessageBox(e.message, "Error", wx.OK | wx.ICON_ERROR)
+                return
+            self.frame.Show()
+        except Exception as e:
+            traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+            wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
 
 
 if __name__ == '__main__':
