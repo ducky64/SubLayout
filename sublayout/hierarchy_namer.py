@@ -5,8 +5,8 @@ import pcbnew
 from .board_utils import BoardUtils
 
 
-class HierarchyNamer:
-    """Infers meaningful names for footprints based on hierarchy sheetnames."""
+class HierarchyData:
+    """Infers hierarchy data from a board, including meaningful names for footprints based on hierarchy sheetnames."""
     @classmethod
     def _build_sheetfile_names(cls, footprints: List[pcbnew.FOOTPRINT]) -> Dict[Tuple[str, ...], Tuple[str, str]]:
         """Iterates through footprints in the board to try to determine the sheetfile and sheetname
@@ -52,3 +52,17 @@ class HierarchyNamer:
         fp_path = BoardUtils.footprint_path(footprint)
         comp_names = self.name_path(fp_path[:-1])
         return '/'.join(comp_names)
+
+    def sheetfile_of(self, path: Tuple[str, ...]) -> Optional[str]:
+        """Returns the sheetfile for the given path."""
+        if path in self._sheetfile_names:
+            return self._sheetfile_names[path][0]
+        return None
+
+    def instances_of(self, target_sheetfile: str) -> List[Tuple[str, ...]]:
+        """Returns all instances of the given sheetfile."""
+        instances = []
+        for path, (sheetfile, _) in self._sheetfile_names.items():
+            if sheetfile == target_sheetfile:
+                instances.append(path)
+        return instances

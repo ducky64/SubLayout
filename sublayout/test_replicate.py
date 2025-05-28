@@ -119,7 +119,7 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertEqual(len(result.get_error_strs()), 1)
         self.assertIn('C9001', result.get_error_strs()[0])
 
-        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_MissingFootprint.kicad_pcb'))  # type: pcbnew.BOARD
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_MissingFootprint.kicad_pcb'))
         anchor = board.FindFootprintByReference('U2')
         sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         result = sublayout.replicate()
@@ -139,7 +139,7 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertEqual(len(result.get_error_strs()), 1)
         self.assertIn('bad_new_net', result.get_error_strs()[0])
 
-        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_BadZone.kicad_pcb'))  # type: pcbnew.BOARD
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_BadZone.kicad_pcb'))
         anchor = board.FindFootprintByReference('U2')
         sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1])
         result = sublayout.replicate()

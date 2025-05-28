@@ -6,7 +6,7 @@ import pcbnew
 import wx
 
 from .sublayout.replicate_sublayout import ReplicateSublayout
-from .sublayout.hierarchy_namer import HierarchyNamer
+from .sublayout.hierarchy_namer import HierarchyData
 from .sublayout.save_sublayout import HierarchySelector
 from .sublayout.board_utils import BoardUtils
 
@@ -63,7 +63,7 @@ class SubLayoutFrame(wx.Frame):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         self._board = pcbnew.GetBoard()  # type: pcbnew.BOARD
-        self._namer = HierarchyNamer(self._board)
+        self._namer = HierarchyData(self._board)
         self._highlighter = HighlightManager(self._board)
         self.Bind(wx.EVT_CLOSE, self._on_close)
 
@@ -72,10 +72,15 @@ class SubLayoutFrame(wx.Frame):
 
         hierarchy_instruction = wx.StaticText(panel, label="Select hierarchy level")
         sizer.Add(hierarchy_instruction, 0, wx.ALL)
-
         self._hierarchy_list = wx.ListBox(panel, style=wx.LB_SINGLE)
         self._hierarchy_list.Bind(wx.EVT_LISTBOX, self._on_select_hierarchy)
         sizer.Add(self._hierarchy_list, 1, wx.EXPAND | wx.ALL)
+
+        instance_instruction = wx.StaticText(panel, label="Select instances for restore / replicate")
+        sizer.Add(instance_instruction, 0, wx.ALL)
+        self._instance_list = wx.ListBox(panel, style=wx.LB_SINGLE)
+        self._instance_list.Bind(wx.EVT_LISTBOX, self._on_select_hierarchy)
+        sizer.Add(self._instance_list, 1, wx.EXPAND | wx.ALL)
 
         self._purge_restore = wx.CheckBox(panel, label="Clear tracks on restore")
         self._purge_restore.SetValue(True)
@@ -87,6 +92,11 @@ class SubLayoutFrame(wx.Frame):
         self._restore_button.Disable()
         button_bar.Add(self._restore_button, 0, wx.ALL | wx.ALIGN_CENTER)
 
+        self._replicate_button = wx.Button(panel, label="Replicate")
+        self._replicate_button.Bind(wx.EVT_BUTTON, self._on_restore)
+        self._replicate_button.Disable()
+        button_bar.Add(self._replicate_button, 0, wx.ALL | wx.ALIGN_CENTER)
+
         self._save_button = wx.Button(panel, label="Save")
         self._save_button.Bind(wx.EVT_BUTTON, self._on_save)
         self._save_button.Disable()
@@ -94,6 +104,7 @@ class SubLayoutFrame(wx.Frame):
         sizer.Add(button_bar, 0, wx.ALL | wx.ALIGN_CENTER)
 
         panel.SetSizer(sizer)
+        sizer.SetSizeHints(self)
 
         self._populate_hierarchy()
 
@@ -116,6 +127,7 @@ class SubLayoutFrame(wx.Frame):
             self._highlighter.clear()
             self._highlighter.highlight(result.ungrouped_elts + result.groups)
             self._save_button.Enable()
+            self._replicate_button.Enable()
             self._restore_button.Enable()
             pcbnew.Refresh()
         except Exception as e:
