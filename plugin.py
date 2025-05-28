@@ -78,8 +78,8 @@ class SubLayoutFrame(wx.Frame):
 
         instance_instruction = wx.StaticText(panel, label="Select instances for restore / replicate")
         sizer.Add(instance_instruction, 0, wx.ALL)
-        self._instance_list = wx.ListBox(panel, style=wx.LB_SINGLE)
-        self._instance_list.Bind(wx.EVT_LISTBOX, self._on_select_hierarchy)
+        self._instance_list = wx.ListBox(panel, style=wx.LB_MULTIPLE)
+        self._instance_list.Bind(wx.EVT_LISTBOX, self._on_select_instances)
         sizer.Add(self._instance_list, 1, wx.EXPAND | wx.ALL)
 
         self._purge_restore = wx.CheckBox(panel, label="Clear tracks on restore")
@@ -87,21 +87,25 @@ class SubLayoutFrame(wx.Frame):
         sizer.Add(self._purge_restore, 0, wx.ALL | wx.ALIGN_CENTER)
 
         button_bar = wx.BoxSizer(wx.HORIZONTAL)
-        self._restore_button = wx.Button(panel, label="Restore")
-        self._restore_button.Bind(wx.EVT_BUTTON, self._on_restore)
-        self._restore_button.Disable()
-        button_bar.Add(self._restore_button, 0, wx.ALL | wx.ALIGN_CENTER)
-
-        self._replicate_button = wx.Button(panel, label="Replicate")
-        self._replicate_button.Bind(wx.EVT_BUTTON, self._on_restore)
-        self._replicate_button.Disable()
-        button_bar.Add(self._replicate_button, 0, wx.ALL | wx.ALIGN_CENTER)
+        sizer.Add(button_bar, 0, wx.ALL | wx.ALIGN_CENTER)
 
         self._save_button = wx.Button(panel, label="Save")
+        self._save_button.SetToolTip("Save the selected hierarchy as a sublayout board.")
         self._save_button.Bind(wx.EVT_BUTTON, self._on_save)
         self._save_button.Disable()
         button_bar.Add(self._save_button, 0, wx.ALL | wx.ALIGN_CENTER)
-        sizer.Add(button_bar, 0, wx.ALL | wx.ALIGN_CENTER)
+
+        self._replicate_button = wx.Button(panel, label="Replicate")
+        self._replicate_button.SetToolTip("Replicate the selected hierarchy into other instances on the current board.")
+        self._replicate_button.Bind(wx.EVT_BUTTON, self._on_replicate)
+        self._replicate_button.Disable()
+        button_bar.Add(self._replicate_button, 0, wx.ALL | wx.ALIGN_CENTER)
+
+        self._restore_button = wx.Button(panel, label="Restore")
+        self._restore_button.SetToolTip("Restore the selected hierarchy instances from a sublayout board.")
+        self._restore_button.Bind(wx.EVT_BUTTON, self._on_restore)
+        self._restore_button.Disable()
+        button_bar.Add(self._restore_button, 0, wx.ALL | wx.ALIGN_CENTER)
 
         panel.SetSizer(sizer)
         sizer.SetSizeHints(self)
@@ -115,10 +119,14 @@ class SubLayoutFrame(wx.Frame):
             raise SublayoutInitError("Must select exactly one anchor footprint.")
 
         path = BoardUtils.footprint_path(self._footprints[0])
-        for i in range(len(path) - 1):  # ignore leaf path
+        for i in reversed(range(len(path) - 1)):  # ignore leaf path
             path_comps = path[:i+1]
-            label = '/'.join(self._namer.name_path(path_comps))
+            label = f"{'/'.join(self._namer.name_path(path_comps))}: {self._namer.sheetfile_of(path_comps)}"
             self._hierarchy_list.Append(label, path_comps)
+
+        if self._hierarchy_list.GetCount() > 0:  # automatically select deepest hierarchy level
+            self._hierarchy_list.SetSelection(0)
+            self._on_select_hierarchy(wx.CommandEvent(wx.EVT_LISTBOX.typeId, 0))
 
     def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
         try:
@@ -127,9 +135,39 @@ class SubLayoutFrame(wx.Frame):
             self._highlighter.clear()
             self._highlighter.highlight(result.ungrouped_elts + result.groups)
             self._save_button.Enable()
-            self._replicate_button.Enable()
-            self._restore_button.Enable()
+            self._replicate_button.Disable()
+            self._restore_button.Disable()
             pcbnew.Refresh()
+
+            self._instance_list.Clear()
+            sheetfile = self._namer.sheetfile_of(selected_path_comps)
+            assert sheetfile is not None, "internal consistency failure: no sheetfile for selected hierarchy"
+            self_index = None
+            for index, instance_path in enumerate(self._namer.instances_of(sheetfile)):
+                if instance_path == selected_path_comps:
+                    self_index = index
+                instance_name = '/'.join(self._namer.name_path(instance_path))
+                self._instance_list.Append(instance_name, instance_path)
+            assert self_index is not None, "internal consistency failure: no instance for selected hierarchy"
+            self._instance_list.SetSelection(self_index)
+            self._on_select_instances(wx.CommandEvent(wx.EVT_LISTBOX.typeId, self_index))
+        except Exception as e:
+            traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+            wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def _on_select_instances(self, event: wx.CommandEvent) -> None:
+        try:
+            selected_paths = [self._instance_list.GetClientData(index) for index in self._instance_list.GetSelections()]
+            if len(selected_paths) == 0:
+                self._restore_button.Disable()
+                self._replicate_button.Disable()
+            elif selected_paths == [self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())]:
+                # disable replicate if src == target
+                self._replicate_button.Disable()
+                self._restore_button.Enable()
+            else:
+                self._replicate_button.Enable()
+                self._restore_button.Enable()
         except Exception as e:
             traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
             wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
@@ -139,8 +177,39 @@ class SubLayoutFrame(wx.Frame):
         pcbnew.Refresh()
         self.Destroy()
 
+    def _on_save(self, event: wx.CommandEvent) -> None:
+        try:
+            selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
+            save_sublayout = HierarchySelector(self._board, selected_path_comps)
+            sublayout_board = save_sublayout.create_sublayout()
+            dlg = wx.FileDialog(self, "Save to", os.getcwd(),
+                                '_'.join(self._namer.name_path(selected_path_comps)),
+                                "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
+                                wx.FD_SAVE)
+            res = dlg.ShowModal()
+            if res != wx.ID_OK:
+                self.Close()
+
+            sublayout_board.Save(dlg.GetPath())
+
+            self.Close()
+        except Exception as e:
+            traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+            wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def _on_replicate(self, event: wx.CommandEvent) -> None:
+        try:
+            raise NotImplemented("TODO SUPPORT MULTIPLE INSTANCES, PRUNE SRC HIERARCHY")
+
+            self.Close()
+        except Exception as e:
+            traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+            wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
+
     def _on_restore(self, event: wx.CommandEvent) -> None:
         try:
+            raise NotImplemented("TODO SUPPORT MULTIPLE INSTANCES")
+
             if len(self._footprints) != 1:
                 wx.MessageBox("Must select anchor footprint(s).", "Error", wx.OK | wx.ICON_ERROR)
                 return
@@ -169,26 +238,6 @@ class SubLayoutFrame(wx.Frame):
                 wx.MessageBox(f"Restore succeeded with warnings:\n{NEWLINE.join(result.get_error_strs())}",
                               "Warning",
                               wx.OK | wx.ICON_WARNING)
-
-            self.Close()
-        except Exception as e:
-            traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
-            wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
-
-    def _on_save(self, event: wx.CommandEvent) -> None:
-        try:
-            selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
-            save_sublayout = HierarchySelector(self._board, selected_path_comps)
-            sublayout_board = save_sublayout.create_sublayout()
-            dlg = wx.FileDialog(self, "Save to", os.getcwd(),
-                                '_'.join(self._namer.name_path(selected_path_comps)),
-                                "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
-                                wx.FD_SAVE)
-            res = dlg.ShowModal()
-            if res != wx.ID_OK:
-                self.Close()
-
-            sublayout_board.Save(dlg.GetPath())
 
             self.Close()
         except Exception as e:
