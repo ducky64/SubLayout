@@ -14,10 +14,10 @@ class FilterResult(NamedTuple):
 
 
 class HierarchySelector():
-    def create_sublayout(self) -> pcbnew.BOARD:
+    def create_sublayout(self, filename: str) -> pcbnew.BOARD:
         """Creates a (copy) board with only the hierarchical elements, preserving group structure."""
-        # board = pcbnew.CreateEmptyBoard()  # type: pcbnew.BOARD
-        board = pcbnew.NewBoard("test.kicad_pcb")  # type: pcbnew.BOARD
+        # board = pcbnew.CreateEmptyBoard()  # this breaks in actual KiCad
+        board = pcbnew.NewBoard(filename)  # type: pcbnew.BOARD
         assert board is not None
         result = self.get_elts()
 

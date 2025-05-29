@@ -5,7 +5,7 @@ from typing import List
 import pcbnew
 import wx
 
-from .sublayout.replicate_sublayout import ReplicateSublayout
+from .sublayout.replicate_sublayout import ReplicateSublayout, FootprintCorrespondence
 from .sublayout.hierarchy_namer import HierarchyData
 from .sublayout.save_sublayout import HierarchySelector
 from .sublayout.board_utils import BoardUtils
@@ -126,7 +126,7 @@ class SubLayoutFrame(wx.Frame):
 
         if self._hierarchy_list.GetCount() > 0:  # automatically select deepest hierarchy level
             self._hierarchy_list.SetSelection(0)
-            self._on_select_hierarchy(wx.CommandEvent(wx.EVT_LISTBOX.typeId, 0))
+            self._on_select_hierarchy(wx.CommandEvent(id=0))
 
     def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
         try:
@@ -139,6 +139,7 @@ class SubLayoutFrame(wx.Frame):
             self._restore_button.Disable()
             pcbnew.Refresh()
 
+            # generate instance list
             self._instance_list.Clear()
             sheetfile = self._namer.sheetfile_of(selected_path_comps)
             assert sheetfile is not None, "internal consistency failure: no sheetfile for selected hierarchy"
@@ -146,22 +147,32 @@ class SubLayoutFrame(wx.Frame):
             for index, instance_path in enumerate(self._namer.instances_of(sheetfile)):
                 if instance_path == selected_path_comps:
                     self_index = index
+                    instance_anchor = self._footprints[0]
+                else:
+                    correspondence = FootprintCorrespondence.by_tstamp(self._board, self._board,
+                                                                       instance_path, selected_path_comps)
+                    instance_anchor = correspondence.get_footprint(self._footprints[0])
+                    if instance_anchor is None:
+                        continue
                 instance_name = '/'.join(self._namer.name_path(instance_path))
-                self._instance_list.Append(instance_name, instance_path)
+                self._instance_list.Append(f"{instance_anchor.GetReference()} {instance_name}",
+                                           (instance_path, instance_anchor))
             assert self_index is not None, "internal consistency failure: no instance for selected hierarchy"
             self._instance_list.SetSelection(self_index)
-            self._on_select_instances(wx.CommandEvent(wx.EVT_LISTBOX.typeId, self_index))
+            self._on_select_instances(wx.CommandEvent(id=self_index))
         except Exception as e:
             traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
             wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
 
     def _on_select_instances(self, event: wx.CommandEvent) -> None:
         try:
-            selected_paths = [self._instance_list.GetClientData(index) for index in self._instance_list.GetSelections()]
-            if len(selected_paths) == 0:
+            selected_instance_anchors = [self._instance_list.GetClientData(index)
+                                         for index in self._instance_list.GetSelections()]
+            if len(selected_instance_anchors) == 0:
                 self._restore_button.Disable()
                 self._replicate_button.Disable()
-            elif selected_paths == [self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())]:
+            elif (len(selected_instance_anchors) == 1 and
+                  selected_instance_anchors[0][0] == self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())):
                 # disable replicate if src == target
                 self._replicate_button.Disable()
                 self._restore_button.Enable()
@@ -181,15 +192,15 @@ class SubLayoutFrame(wx.Frame):
         try:
             selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
             save_sublayout = HierarchySelector(self._board, selected_path_comps)
-            sublayout_board = save_sublayout.create_sublayout()
             dlg = wx.FileDialog(self, "Save to", os.getcwd(),
                                 '_'.join(self._namer.name_path(selected_path_comps)),
                                 "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
                                 wx.FD_SAVE)
             res = dlg.ShowModal()
             if res != wx.ID_OK:
-                self.Close()
+                return
 
+            sublayout_board = save_sublayout.create_sublayout(dlg.GetPath())
             sublayout_board.Save(dlg.GetPath())
 
             self.Close()
@@ -199,7 +210,22 @@ class SubLayoutFrame(wx.Frame):
 
     def _on_replicate(self, event: wx.CommandEvent) -> None:
         try:
-            raise NotImplemented("TODO SUPPORT MULTIPLE INSTANCES, PRUNE SRC HIERARCHY")
+            selected_instance_anchors = [self._instance_list.GetClientData(index)
+                                         for index in self._instance_list.GetSelections()]
+            all_errors = []
+            # for instance_path, instance_anchor in selected_instance_anchors:
+            #     restore = ReplicateSublayout(sublayout_board, self._board, instance_anchor, instance_path)
+            #     if self._purge_restore.GetValue():
+            #         restore.purge_lca()
+            #     result = restore.replicate()
+            #     all_errors.extend(result.get_error_strs())
+
+            pcbnew.Refresh()
+            if all_errors:
+                NEWLINE = '\n'
+                wx.MessageBox(f"Restore succeeded with warnings:\n{NEWLINE.join(all_errors)}",
+                              "Warning",
+                              wx.OK | wx.ICON_WARNING)
 
             self.Close()
         except Exception as e:
@@ -208,12 +234,6 @@ class SubLayoutFrame(wx.Frame):
 
     def _on_restore(self, event: wx.CommandEvent) -> None:
         try:
-            raise NotImplemented("TODO SUPPORT MULTIPLE INSTANCES")
-
-            if len(self._footprints) != 1:
-                wx.MessageBox("Must select anchor footprint(s).", "Error", wx.OK | wx.ICON_ERROR)
-                return
-
             selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
             dlg = wx.FileDialog(self, "Restore sublayout from", os.getcwd(),
                                 '_'.join(self._namer.name_path(selected_path_comps)),
@@ -221,21 +241,27 @@ class SubLayoutFrame(wx.Frame):
                                 wx.FD_OPEN)
             res = dlg.ShowModal()
             if res != wx.ID_OK:
-                self.Close()
+                return
 
             sublayout_board = pcbnew.PCB_IO_MGR.Load(pcbnew.PCB_IO_MGR.KICAD_SEXP, dlg.GetPath())  # type: pcbnew.BOARD
             if not sublayout_board:
                 wx.MessageBox("Failed to load sublayout board.", "Error", wx.OK | wx.ICON_ERROR)
                 return
-            restore = ReplicateSublayout(sublayout_board, self._board, self._footprints[0], selected_path_comps)
-            if self._purge_restore.GetValue():
-                restore.purge_lca()
-            result = restore.replicate()
-            pcbnew.Refresh()
 
-            if result.get_error_strs():
+            selected_instance_anchors = [self._instance_list.GetClientData(index)
+                                         for index in self._instance_list.GetSelections()]
+            all_errors = []
+            for instance_path, instance_anchor in selected_instance_anchors:
+                restore = ReplicateSublayout(sublayout_board, self._board, instance_anchor, instance_path)
+                if self._purge_restore.GetValue():
+                    restore.purge_lca()
+                result = restore.replicate()
+                all_errors.extend(result.get_error_strs())
+
+            pcbnew.Refresh()
+            if all_errors:
                 NEWLINE = '\n'
-                wx.MessageBox(f"Restore succeeded with warnings:\n{NEWLINE.join(result.get_error_strs())}",
+                wx.MessageBox(f"Restore succeeded with warnings:\n{NEWLINE.join(all_errors)}",
                               "Warning",
                               wx.OK | wx.ICON_WARNING)
 

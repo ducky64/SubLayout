@@ -13,8 +13,17 @@ class FootprintCorrespondence(NamedTuple):
     source_only_footprints: List[pcbnew.FOOTPRINT] = []
     target_only_footprints: List[pcbnew.FOOTPRINT] = []
 
+    def get_footprint(self, src_footprint: pcbnew.FOOTPRINT) -> Optional[pcbnew.FOOTPRINT]:
+        """Returns the target footprint corresponding to the source footprint, or None if not found"""
+        # TODO: create and cache a dict for faster lookup
+        for src_fp, target_fp in self.mapped_footprints:
+            if src_fp == src_footprint:
+                return target_fp
+        return None
+
     @staticmethod
-    def by_tstamp(src_board: pcbnew.BOARD, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...])\
+    def by_tstamp(src_board: pcbnew.BOARD, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...],
+                  src_path_prefix_filter: Tuple[str, ...] = ())\
             -> 'FootprintCorrespondence':
         """Calculates a footprint correspondence using relative-path tstamps.
         Source path prefix is automatically inferred and asserted checked for consistency"""
@@ -36,6 +45,8 @@ class FootprintCorrespondence(NamedTuple):
         source_footprints = src_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
         source_prefixes: Set[Tuple[str, ...]] = set()
         for footprint in source_footprints:
+            if not BoardUtils.footprint_path_startswith(footprint, src_path_prefix_filter):
+                continue  # ignore footprints outside the optional hierarchy filter
             footprint_path = BoardUtils.footprint_path(footprint)
             matched = False
             for i in range(len(footprint_path)):  # try all postfix lengths to match
@@ -152,7 +163,7 @@ class ReplicateSublayout():
 
         self._correspondences = FootprintCorrespondence.by_tstamp(self._src_board, self._target_board,
                                                                   self._target_path_prefix)
-        correspondences_by_tstamp = {
+        correspondences_by_tstamp = {  # TODO use FootprintCorrespondence methods to map
             BoardUtils.footprint_path(target_footprint): src_footprint
             for src_footprint, target_footprint in self._correspondences.mapped_footprints
         }
