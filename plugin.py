@@ -150,7 +150,8 @@ class SubLayoutFrame(wx.Frame):
                     instance_anchor = self._footprints[0]
                 else:
                     correspondence = FootprintCorrespondence.by_tstamp(self._board, self._board,
-                                                                       instance_path, selected_path_comps)
+                                                                       instance_path,
+                                                                       src_path_prefix=selected_path_comps)
                     instance_anchor = correspondence.get_footprint(self._footprints[0])
                     if instance_anchor is None:
                         continue
@@ -213,12 +214,21 @@ class SubLayoutFrame(wx.Frame):
             selected_instance_anchors = [self._instance_list.GetClientData(index)
                                          for index in self._instance_list.GetSelections()]
             all_errors = []
-            # for instance_path, instance_anchor in selected_instance_anchors:
-            #     restore = ReplicateSublayout(sublayout_board, self._board, instance_anchor, instance_path)
-            #     if self._purge_restore.GetValue():
-            #         restore.purge_lca()
-            #     result = restore.replicate()
-            #     all_errors.extend(result.get_error_strs())
+            source_instance_path = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
+            source_sublayout = HierarchySelector(self._board, source_instance_path)
+            source_result = source_sublayout.get_elts()
+            source_elts = source_result.ungrouped_elts + source_result.groups
+
+            for instance_path, instance_anchor in selected_instance_anchors:
+                if instance_path == source_instance_path:
+                    continue  # skip self-replication
+                restore = ReplicateSublayout(self._board, self._board, instance_anchor, instance_path,
+                                             src_path_prefix=source_instance_path,
+                                             src_elts=source_elts)
+                if self._purge_restore.GetValue():
+                    restore.purge_lca()
+                result = restore.replicate()
+                all_errors.extend(result.get_error_strs())
 
             pcbnew.Refresh()
             if all_errors:
