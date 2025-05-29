@@ -275,23 +275,24 @@ class ReplicateSublayout():
                     target_group.AddItem(cloned_item)
                     cloned_item.SetParentGroup(target_group)
 
-                    src_netcode_pads = self._get_netcode_pads(self._src_board, item.GetNetCode())
-                    target_netcodes: Set[int] = set()
-                    for footprint, pad in src_netcode_pads:
-                        target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(footprint))
-                        if target_footprint is None:  # ignore
-                            continue
-                        target_pad = target_footprint.FindPadByNumber(pad.GetNumber())  # type: pcbnew.PAD
-                        target_netcodes.add(target_pad.GetNetCode())
-                    if len(target_netcodes) == 1:
-                        cloned_item.SetNetCode(list(target_netcodes)[0])
-                    else:
-                        if isinstance(item, pcbnew.PCB_TRACK):
-                            result.tracks_missing_netcode.append(item)
-                        elif isinstance(item, pcbnew.ZONE):
-                            result.zones_missing_netcode.append(item)
+                    if item.GetNetCode() != 0:  # ignore items without netcodes, eg keepout zones
+                        src_netcode_pads = self._get_netcode_pads(self._src_board, item.GetNetCode())
+                        target_netcodes: Set[int] = set()
+                        for footprint, pad in src_netcode_pads:
+                            target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(footprint))
+                            if target_footprint is None:  # ignore
+                                continue
+                            target_pad = target_footprint.FindPadByNumber(pad.GetNumber())  # type: pcbnew.PAD
+                            target_netcodes.add(target_pad.GetNetCode())
+                        if len(target_netcodes) == 1:
+                            cloned_item.SetNetCode(list(target_netcodes)[0])
                         else:
-                            raise TypeError(f"unknown item type of {item} failed to replicate netcode")
+                            if isinstance(item, pcbnew.PCB_TRACK):
+                                result.tracks_missing_netcode.append(item)
+                            elif isinstance(item, pcbnew.ZONE):
+                                result.zones_missing_netcode.append(item)
+                            else:
+                                raise TypeError(f"unknown item type of {item} failed to replicate netcode")
 
                     # fix coordinates
                     if isinstance(cloned_item, pcbnew.PCB_TRACK):  # need to explicitly assign zone netcodes

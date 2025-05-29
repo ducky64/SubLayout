@@ -217,7 +217,10 @@ class SubLayoutFrame(wx.Frame):
             source_instance_path = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
             source_sublayout = HierarchySelector(self._board, source_instance_path)
             source_result = source_sublayout.get_elts()
-            source_elts = source_result.ungrouped_elts + source_result.groups
+            if not source_result.ungrouped_elts and len(source_result.groups) == 1:
+                source_elts = source_result.groups[0].GetItems()  # only one group, flatten it out
+            else:
+                source_elts = source_result.ungrouped_elts + source_result.groups
 
             for instance_path, instance_anchor in selected_instance_anchors:
                 if instance_path == source_instance_path:
