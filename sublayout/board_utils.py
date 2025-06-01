@@ -1,6 +1,8 @@
-from typing import Tuple, cast, Optional, List, Hashable, Any
+from typing import Tuple, cast, Optional, List, Hashable, Any, Iterable, Union
 
 import pcbnew
+
+from .save_sublayout import FilterResult
 
 
 class BoardUtils():
@@ -121,3 +123,26 @@ class GroupWrapper():
             return f"GroupWrapper({self._group.GetName()}: {item_count}; {', '.join(sorted_refs)})"
         else:
             return f"GroupWrapper({item_count}; {', '.join(sorted_refs)})"
+
+
+GroupLike = Union[pcbnew.PCB_GROUP, pcbnew.BOARD, FilterResult]
+
+def group_like_items(grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
+    """Given a grouplike, returns the items in the group.
+    Straightforward for groups, does some computation for boards and hierarchy selection results"""
+    if isinstance(grouplike, pcbnew.PCB_GROUP):
+        return grouplike.GetItems()
+    elif isinstance(grouplike, pcbnew.BOARD):
+        groups = [group for group in grouplike.Groups()]  # type: List[pcbnew.PCB_GROUP]
+        footprints = [item for item in grouplike.GetFootprints()]  # type: List[pcbnew.FOOTPRINT]
+        tracks = [item for item in grouplike.GetTracks()]  # type: List[pcbnew.PCB_TRACK]
+        zones = [grouplike.GetArea(i) for i in range(grouplike.GetAreaCount())]  # type: List[pcbnew.ZONE]
+        return [item for item in groups + footprints + tracks + zones
+                if item.GetParentGroup() is None]
+    elif isinstance(grouplike, FilterResult):
+        if len(grouplike.groups) == 1 and len(grouplike.ungrouped_elts) == 0:
+            return group_like_items(grouplike.groups[0])  # single group, flatten out
+        else:
+            return grouplike.groups + grouplike.ungrouped_elts  # return groups and elts
+    else:
+        raise TypeError(f"unknown grouplike type {grouplike}")

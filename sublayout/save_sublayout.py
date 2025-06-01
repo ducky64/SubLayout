@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Set, NamedTuple, Union, Sequence, Optional, Type
+from typing import Tuple, List, Dict, Set, NamedTuple, Union, Optional, Type
 
 import pcbnew
 
