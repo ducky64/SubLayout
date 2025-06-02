@@ -254,7 +254,7 @@ class ReplicateSublayout():
                     cloned_item.SetParentGroup(target_group)
 
                     if item.GetNetCode() != 0:  # ignore items without netcodes, eg keepout zones
-                        src_netcode_pads = self._get_netcode_pads(self._src, item.GetNetCode())
+                        src_netcode_pads = self._get_netcode_pads(item.GetBoard(), item.GetNetCode())
                         target_netcodes: Set[int] = set()
                         for footprint, pad in src_netcode_pads:
                             target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(footprint))

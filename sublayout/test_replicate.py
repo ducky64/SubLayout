@@ -33,7 +33,7 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertEqual(len(correspondence.source_only_footprints), 1)  # just J1, which is out of scope
         self.assertEqual(len(correspondence.target_only_footprints), 0)
 
-    def test_correspondences_multi(self):
+    def test_correspondences_multiinstance(self):
         """Tests correspondence generation with a board with multiple instances of a hierarchy block"""
         board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TofArray_Unreplicated.kicad_pcb'))  # type: pcbnew.BOARD
         source_group = HierarchySelector(board, BoardUtils.footprint_path(board.FindFootprintByReference('U3'))[:-1]).get_elts()
@@ -111,6 +111,21 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertFalse(result.get_error_strs())
 
         board.Save('test_output_replicate.kicad_pcb')
+
+    def test_replicate_multiinstance(self):
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TofArray_Unreplicated.kicad_pcb'))  # type: pcbnew.BOARD
+        sublayout_source = HierarchySelector(board, BoardUtils.footprint_path(board.FindFootprintByReference('U3'))[:-1]).get_elts()
+        target_anchor = board.FindFootprintByReference('U4')
+        sublayout = ReplicateSublayout(sublayout_source, board, target_anchor, BoardUtils.footprint_path(target_anchor)[:-1])
+        result = sublayout.replicate()
+        self.assertFalse(result.get_error_strs())
+
+        target_anchor = board.FindFootprintByReference('U7')
+        sublayout = ReplicateSublayout(sublayout_source, board, target_anchor, BoardUtils.footprint_path(target_anchor)[:-1])
+        result = sublayout.replicate()
+        self.assertFalse(result.get_error_strs())
+
+        board.Save('test_output_replicate_multiinstance.kicad_pcb')
 
     def test_replicate_grouped(self):
         # example that replicates into a target group (instead of creating a new group)
