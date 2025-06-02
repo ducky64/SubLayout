@@ -215,17 +215,12 @@ class SubLayoutFrame(wx.Frame):
                                          for index in self._instance_list.GetSelections()]
             all_errors = []
             source_instance_path = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
-            source_sublayout = HierarchySelector(self._board, source_instance_path)
-            source_result = source_sublayout.get_elts()
-            if not source_result.ungrouped_elts and len(source_result.groups) == 1:
-                source_elts = source_result.groups[0].GetItems()  # only one group, flatten it out
-            else:
-                source_elts = source_result.ungrouped_elts + source_result.groups
+            source_sublayout = HierarchySelector(self._board, source_instance_path).get_elts()
 
             for instance_path, instance_anchor in selected_instance_anchors:
                 if instance_path == source_instance_path:
                     continue  # skip self-replication
-                restore = ReplicateSublayout(source_elts, self._board, instance_anchor, instance_path)
+                restore = ReplicateSublayout(source_sublayout, self._board, instance_anchor, instance_path)
                 if self._purge_restore.GetValue():
                     restore.purge_lca()
                 result = restore.replicate()
