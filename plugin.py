@@ -149,9 +149,9 @@ class SubLayoutFrame(wx.Frame):
                     self_index = index
                     instance_anchor = self._footprints[0]
                 else:
-                    correspondence = FootprintCorrespondence.by_tstamp(self._board, self._board,
-                                                                       instance_path,
-                                                                       src_path_prefix=selected_path_comps)
+                    src_hierarchy = HierarchySelector(self._board, selected_path_comps).get_elts()
+                    correspondence = FootprintCorrespondence.by_tstamp(src_hierarchy, self._board,
+                                                                       instance_path)
                     instance_anchor = correspondence.get_footprint(self._footprints[0])
                     if instance_anchor is None:
                         continue
@@ -225,9 +225,7 @@ class SubLayoutFrame(wx.Frame):
             for instance_path, instance_anchor in selected_instance_anchors:
                 if instance_path == source_instance_path:
                     continue  # skip self-replication
-                restore = ReplicateSublayout(self._board, self._board, instance_anchor, instance_path,
-                                             src_path_prefix=source_instance_path,
-                                             src_elts=source_elts)
+                restore = ReplicateSublayout(source_elts, self._board, instance_anchor, instance_path)
                 if self._purge_restore.GetValue():
                     restore.purge_lca()
                 result = restore.replicate()

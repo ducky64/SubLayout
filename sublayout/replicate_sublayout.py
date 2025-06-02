@@ -3,7 +3,7 @@ from typing import Tuple, List, Dict, NamedTuple, Set, Optional, Union, Iterable
 
 import pcbnew
 
-from .board_utils import BoardUtils, GroupWrapper
+from .board_utils import BoardUtils, GroupWrapper, GroupLike, group_like_items, group_like_recursive_footprints
 
 
 class FootprintCorrespondence(NamedTuple):
@@ -22,8 +22,7 @@ class FootprintCorrespondence(NamedTuple):
         return None
 
     @staticmethod
-    def by_tstamp(src_board: pcbnew.BOARD, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...], *,
-                  src_path_prefix: Tuple[str, ...] = ())\
+    def by_tstamp(src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...])\
             -> 'FootprintCorrespondence':
         """Calculates a footprint correspondence using relative-path tstamps.
         Source path prefix is automatically inferred and asserted checked for consistency"""
@@ -42,11 +41,9 @@ class FootprintCorrespondence(NamedTuple):
             target_footprint_by_postfix[footprint_postfix] = footprint
 
         # iterate through all source footprints and match by postfix, storing the prefix
-        source_footprints = src_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
+        source_footprints = group_like_recursive_footprints(src)
         source_prefixes: Set[Tuple[str, ...]] = set()
         for footprint in source_footprints:
-            if not BoardUtils.footprint_path_startswith(footprint, src_path_prefix):
-                continue  # ignore footprints outside the optional hierarchy filter
             footprint_path = BoardUtils.footprint_path(footprint)
             matched = False
             for i in range(len(footprint_path)):  # try all postfix lengths to match
@@ -153,21 +150,16 @@ class ReplicateSublayout():
     """A class that represents a correspondence between a source board and a target board with anchor footprint
     and replication hierarchy level. The source anchor footprint is determined automatically.
     Computes correspondences on __init__, but replication is done explicitly."""
-    def __init__(self, src_board: pcbnew.BOARD,
+    def __init__(self, src_board: GroupLike,
                  target_board: pcbnew.BOARD, target_anchor: pcbnew.FOOTPRINT,
-                 target_path_prefix: Tuple[str, ...], *,
-                 src_path_prefix: Tuple[str, ...] = (),
-                 src_elts: Optional[Iterable[pcbnew.BOARD_ITEM]] = None) -> None:
-        self._src_board = src_board
+                 target_path_prefix: Tuple[str, ...]) -> None:
+        self._src = src_board
         self._target_board = target_board
         self._target_anchor = target_anchor
         self._target_path_prefix = target_path_prefix
-        self._src_path_prefix = src_path_prefix
-        self._src_elts = src_elts
 
-        self._correspondences = FootprintCorrespondence.by_tstamp(self._src_board, self._target_board,
-                                                                  self._target_path_prefix,
-                                                                  src_path_prefix=self._src_path_prefix)
+        self._correspondences = FootprintCorrespondence.by_tstamp(self._src, self._target_board,
+                                                                  self._target_path_prefix)
         correspondences_by_tstamp = {  # TODO use FootprintCorrespondence methods to map
             BoardUtils.footprint_path(target_footprint): src_footprint
             for src_footprint, target_footprint in self._correspondences.mapped_footprints
@@ -231,23 +223,9 @@ class ReplicateSublayout():
             BoardUtils.footprint_path(src_footprint): target_footprint
             for src_footprint, target_footprint in self._correspondences.mapped_footprints
         }
-        def recurse_group(source_group: Union[pcbnew.PCB_GROUP, pcbnew.BOARD, Iterable[pcbnew.BOARD_ITEM]],
+        def recurse_group(source_group: GroupLike,
                           target_group: pcbnew.PCB_GROUP) -> None:
-            if isinstance(source_group, pcbnew.BOARD):  # board does not provide GetItems() for top
-                groups = [group for group in source_group.Groups()]
-                footprints = [item for item in source_group.GetFootprints()]
-                tracks = [item for item in source_group.GetTracks()]
-                zones = [source_group.GetArea(i) for i in range(source_group.GetAreaCount())]
-                items: Iterable[pcbnew.BOARD_ITEM] = [item for item in groups + footprints + tracks + zones
-                                                      if item.GetParentGroup() is None]
-            elif isinstance(source_group, pcbnew.PCB_GROUP):
-                items = source_group.GetItems()
-            elif isinstance(source_group, Iterable):
-                items = source_group
-            else:
-                raise TypeError(f'unsupported source group type {type(source_group)}')
-
-            for item in items:
+            for item in group_like_items(source_group):
                 if isinstance(item, pcbnew.PCB_GROUP):
                     new_group = pcbnew.PCB_GROUP(self._target_board)
                     self._target_board.Add(new_group)
@@ -276,7 +254,7 @@ class ReplicateSublayout():
                     cloned_item.SetParentGroup(target_group)
 
                     if item.GetNetCode() != 0:  # ignore items without netcodes, eg keepout zones
-                        src_netcode_pads = self._get_netcode_pads(self._src_board, item.GetNetCode())
+                        src_netcode_pads = self._get_netcode_pads(self._src, item.GetNetCode())
                         target_netcodes: Set[int] = set()
                         for footprint, pad in src_netcode_pads:
                             target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(footprint))
@@ -321,11 +299,7 @@ class ReplicateSublayout():
                                 cloned_layers.AddLayer(pcbnew.F_Cu)
                             cloned_item.SetLayerSet(cloned_layers)
                 else:
-                    raise ValueError(f'unsupported item type {type(item)} in group {source_group.GetName()}')
-        if self._src_elts is not None:
-            # if source elements are provided, use them instead of the board
-            recurse_group(self._src_elts, target_group)
-        else:
-            recurse_group(self._src_board, target_group)
+                    raise ValueError(f'unsupported item type {type(item)} in group-like {source_group}')
+        recurse_group(self._src, target_group)
 
         return result

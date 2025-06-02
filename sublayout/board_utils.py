@@ -1,8 +1,9 @@
-from typing import Tuple, cast, Optional, List, Hashable, Any, Iterable, Union
+from typing import Tuple, cast, Optional, List, Hashable, Any, Iterable, Union, TYPE_CHECKING
 
 import pcbnew
 
-from .save_sublayout import FilterResult
+if TYPE_CHECKING:
+    from .save_sublayout import FilterResult
 
 
 class BoardUtils():
@@ -125,11 +126,13 @@ class GroupWrapper():
             return f"GroupWrapper({item_count}; {', '.join(sorted_refs)})"
 
 
-GroupLike = Union[pcbnew.PCB_GROUP, pcbnew.BOARD, FilterResult]
+GroupLike = Union[pcbnew.PCB_GROUP, pcbnew.BOARD, 'FilterResult']
 
 def group_like_items(grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
     """Given a grouplike, returns the items in the group.
     Straightforward for groups, does some computation for boards and hierarchy selection results"""
+    from .save_sublayout import FilterResult
+    
     if isinstance(grouplike, pcbnew.PCB_GROUP):
         return grouplike.GetItems()
     elif isinstance(grouplike, pcbnew.BOARD):
@@ -146,3 +149,11 @@ def group_like_items(grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
             return grouplike.groups + grouplike.ungrouped_elts  # return groups and elts
     else:
         raise TypeError(f"unknown grouplike type {grouplike}")
+
+def group_like_recursive_footprints(grouplike: GroupLike) -> Iterable[pcbnew.FOOTPRINT]:
+    """Given a grouplike, returns the footprints in the group, recursively."""
+    for item in group_like_items(grouplike):
+        if isinstance(item, pcbnew.FOOTPRINT):
+            yield item
+        elif isinstance(item, pcbnew.PCB_GROUP):
+            yield from group_like_recursive_footprints(item)
