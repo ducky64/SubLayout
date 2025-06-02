@@ -5,6 +5,7 @@ import pcbnew
 
 from .board_utils import BoardUtils
 from .replicate_sublayout import ReplicateSublayout, FootprintCorrespondence, PositionTransform
+from .save_sublayout import HierarchySelector
 
 
 class ReplicateTestCase(unittest.TestCase):
@@ -31,6 +32,24 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertEqual(len(correspondence.mapped_footprints), 2)
         self.assertEqual(len(correspondence.source_only_footprints), 1)  # just J1, which is out of scope
         self.assertEqual(len(correspondence.target_only_footprints), 0)
+
+    def test_correspondences_multi(self):
+        """Tests correspondence generation with a board with multiple instances of a hierarchy block"""
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TofArray_Unreplicated.kicad_pcb'))  # type: pcbnew.BOARD
+        source_group = HierarchySelector(board, BoardUtils.footprint_path(board.FindFootprintByReference('U3'))[:-1]).get_elts()
+        target_anchor = board.FindFootprintByReference('U4')
+        correspondence = FootprintCorrespondence.by_tstamp(source_group, board, BoardUtils.footprint_path(target_anchor)[:-1])
+        self.assertEqual(len(correspondence.mapped_footprints), 3)
+        self.assertIn((board.FindFootprintByReference('U3'), board.FindFootprintByReference('U4')), correspondence.mapped_footprints)
+        self.assertIn((board.FindFootprintByReference('C11'), board.FindFootprintByReference('C13')), correspondence.mapped_footprints)
+        self.assertIn((board.FindFootprintByReference('C12'), board.FindFootprintByReference('C14')), correspondence.mapped_footprints)
+
+        target_anchor = board.FindFootprintByReference('U7')
+        correspondence = FootprintCorrespondence.by_tstamp(source_group, board, BoardUtils.footprint_path(target_anchor)[:-1])
+        self.assertEqual(len(correspondence.mapped_footprints), 3)
+        self.assertIn((board.FindFootprintByReference('U3'), board.FindFootprintByReference('U7')), correspondence.mapped_footprints)
+        self.assertIn((board.FindFootprintByReference('C11'), board.FindFootprintByReference('C19')), correspondence.mapped_footprints)
+        self.assertIn((board.FindFootprintByReference('C12'), board.FindFootprintByReference('C20')), correspondence.mapped_footprints)
 
     def check_transform_equality(self, src_board: pcbnew.BOARD, target_board: pcbnew.BOARD, target_anchor_ref: str):
         anchor = target_board.FindFootprintByReference(target_anchor_ref)
@@ -109,7 +128,6 @@ class ReplicateTestCase(unittest.TestCase):
 
     def test_replicate_footprint_error(self):
         board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))  # type: pcbnew.BOARD
-
 
         sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'McuSublayout_ExtraFootprint.kicad_pcb'))  # type: pcbnew.BOARD
         anchor = board.FindFootprintByReference('U2')

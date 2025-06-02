@@ -132,7 +132,7 @@ def group_like_items(grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
     """Given a grouplike, returns the items in the group.
     Straightforward for groups, does some computation for boards and hierarchy selection results"""
     from .save_sublayout import FilterResult
-    
+
     if isinstance(grouplike, pcbnew.PCB_GROUP):
         return grouplike.GetItems()
     elif isinstance(grouplike, pcbnew.BOARD):
