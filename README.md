@@ -4,6 +4,38 @@ KiCad plugin to merge (or create) a sub-pcb-layout into (or from) a top-level bo
 Inspired by [SaveRestoreLayout](https://github.com/MitjaNemec/SaveRestoreLayout) and [HierarchicalPcb](https://github.com/gauravmm/HierarchicalPcb), but this plugin only uses the board layout file and does not require a schematic or any project structure.
 Compatible with schematic-less flows as long as the requirements below are met.
 
+<table>
+<tr>
+<td><b>Select anchor footprint ...</b>
+
+![](docs/pre-replicate-anchor.png)
+</td>
+<td><b>... invoke plugin ...</b>
+
+![](docs/replicate-window.png)
+</td>
+<td><b>... profit</b>
+
+![](docs/post-replicate.png)
+</td>
+</tr>
+
+<tr>
+<td/>
+<td/>
+
+<td><b>... or save sublayout</b>
+
+![](docs/saved.png)
+
+as an editable .kicad_pcb file, restore-able to another board
+
+</td>
+
+</tr>
+</table>
+
+
 ## Features
 - Select and save the layout of a hierarchical block to a .kicad_pcb file.
   - Selection includes traces, vias, and zones of internal nets.
@@ -15,6 +47,7 @@ Compatible with schematic-less flows as long as the requirements below are met.
 - Replicate a layout of a hierarchical block to other instances of that block in the same board. 
 - Best-effort restore when the footprints or netlists do not match, allowing partial restores when the hierarhical sheet schematic has changed.
 
+
 ## Workflow
 1. Select ONE anchor footprint.
    - For saving: select any footprint in the hierarchical block to be saved.
@@ -25,6 +58,16 @@ Compatible with schematic-less flows as long as the requirements below are met.
    By default, the lowest (leafmost) hierarchical block is selected.
 4. Optionally, select multiple instances of the hierarchical block to replicate or restore.
 5. Click 'Save', 'Replicate' or 'Restore' to perform the operation.
+
+
+## Installation
+_TODO: make available on the KiCad plugin / package manager_
+
+Clone this repository into your KiCad plugins directory.
+- On Windows, this is typically `C:\Users\<username>\Documents\KiCad\8.0\scripting\plugins`, and if cloned correctly, this file should exist: `C:\Users\<username>\Documents\KiCad\8.0\scripting\plugins\SubLayout\plugin.py`.
+
+The plugin is invokable from the Tools > External Plugins menu.
+
 
 ## Board Requirements
 - Sublayouts work on hierarchical sheets.
