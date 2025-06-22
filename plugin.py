@@ -86,6 +86,14 @@ class SubLayoutFrame(wx.Frame):
         self._purge_restore.SetValue(True)
         sizer.Add(self._purge_restore, 0, wx.ALL | wx.ALIGN_CENTER)
 
+        matching_bar = wx.BoxSizer(wx.HORIZONTAL)
+        sizer.Add(matching_bar, 0, wx.ALL | wx.ALIGN_CENTER)
+        self._match_by_refdes = wx.RadioButton(panel, label="match by relative refdes")
+        self._match_by_refdes.SetValue(True)  # default, consistent with netlist loading behavior
+        matching_bar.Add(self._match_by_refdes)
+        self._match_by_tstamp = wx.RadioButton(panel, label="match by tstamp")
+        matching_bar.Add(self._match_by_tstamp)
+
         button_bar = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(button_bar, 0, wx.ALL | wx.ALIGN_CENTER)
 
@@ -150,8 +158,15 @@ class SubLayoutFrame(wx.Frame):
                     instance_anchor = self._footprints[0]
                 else:
                     src_hierarchy = HierarchySelector(self._board, selected_path_comps).get_elts()
-                    correspondence = FootprintCorrespondence.by_tstamp(src_hierarchy, self._board,
-                                                                       instance_path)
+                    if self._match_by_refdes.GetValue():
+                        correspondence = FootprintCorrespondence.by_refdes(src_hierarchy, self._board,
+                                                                           instance_path)
+                    elif self._match_by_tstamp.GetValue():
+                        correspondence = FootprintCorrespondence.by_tstamp(src_hierarchy, self._board,
+                                                                           instance_path)
+                    else:
+                        raise ValueError("no footprint matching option selected")
+
                     instance_anchor = correspondence.get_footprint(self._footprints[0])
                     if instance_anchor is None:
                         continue

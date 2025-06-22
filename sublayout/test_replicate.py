@@ -45,7 +45,7 @@ class ReplicateTestCase(unittest.TestCase):
         for src_footprint, target_footprint in correspondence.mapped_footprints:
             self.assertEqual(src_footprint.GetReferenceAsString(), target_footprint.GetReferenceAsString())
 
-        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'CharlieHalfSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'CharlieHalfSublayout.kicad_pcb'))
         correspondence = FootprintCorrespondence.by_refdes(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
         self.assertEqual(len(correspondence.mapped_footprints), 6)
         self.assertEqual(len(correspondence.source_only_footprints), 0)
