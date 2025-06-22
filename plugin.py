@@ -1,6 +1,6 @@
 import os
 import traceback
-from typing import List
+from typing import List, Callable, Tuple
 
 import pcbnew
 import wx
@@ -8,7 +8,7 @@ import wx
 from .sublayout.replicate_sublayout import ReplicateSublayout, FootprintCorrespondence
 from .sublayout.hierarchy_namer import HierarchyData
 from .sublayout.save_sublayout import HierarchySelector
-from .sublayout.board_utils import BoardUtils
+from .sublayout.board_utils import BoardUtils, GroupLike
 
 
 class HighlightManager():
@@ -65,6 +65,7 @@ class SubLayoutFrame(wx.Frame):
         self._board = pcbnew.GetBoard()  # type: pcbnew.BOARD
         self._namer = HierarchyData(self._board)
         self._highlighter = HighlightManager(self._board)
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
         self.Bind(wx.EVT_CLOSE, self._on_close)
 
         footprints = self._board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
@@ -85,6 +86,16 @@ class SubLayoutFrame(wx.Frame):
         self._purge_restore = wx.CheckBox(panel, label="Clear tracks on restore")
         self._purge_restore.SetValue(True)
         sizer.Add(self._purge_restore, 0, wx.ALL | wx.ALIGN_CENTER)
+
+        matching_bar = wx.BoxSizer(wx.HORIZONTAL)
+        sizer.Add(matching_bar, 0, wx.ALL | wx.ALIGN_CENTER)
+        self._match_by_refdes = wx.RadioButton(panel, label="match by relative refdes", style=wx.RB_GROUP)
+        self._match_by_refdes.Bind(wx.EVT_RADIOBUTTON, self._on_select_hierarchy)  # changes the matching behavior
+        self._match_by_refdes.SetValue(True)  # default, consistent with netlist loading behavior
+        matching_bar.Add(self._match_by_refdes)
+        self._match_by_tstamp = wx.RadioButton(panel, label="match by tstamp")
+        self._match_by_tstamp.Bind(wx.EVT_RADIOBUTTON, self._on_select_hierarchy)
+        matching_bar.Add(self._match_by_tstamp)
 
         button_bar = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(button_bar, 0, wx.ALL | wx.ALIGN_CENTER)
@@ -112,6 +123,12 @@ class SubLayoutFrame(wx.Frame):
 
         self._populate_hierarchy()
 
+    def _on_key(self, event):
+        if event.GetKeyCode() == wx.WXK_ESCAPE:
+            self.Close()
+        else:
+            event.Skip()
+
     def _populate_hierarchy(self) -> None:
         self._hierarchy_list.Clear()
 
@@ -128,9 +145,17 @@ class SubLayoutFrame(wx.Frame):
             self._hierarchy_list.SetSelection(0)
             self._on_select_hierarchy(wx.CommandEvent(id=0))
 
+    def _get_correspondence_fn(self) -> Callable[[GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]:
+        if self._match_by_refdes.GetValue():
+            return FootprintCorrespondence.by_refdes
+        elif self._match_by_tstamp.GetValue():
+            return FootprintCorrespondence.by_tstamp
+        else:
+            raise ValueError("no footprint matching option selected")
+
     def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
         try:
-            selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
+            selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
             result = HierarchySelector(self._board, selected_path_comps).get_elts()
             self._highlighter.clear()
             self._highlighter.highlight(result.ungrouped_elts + result.groups)
@@ -150,8 +175,7 @@ class SubLayoutFrame(wx.Frame):
                     instance_anchor = self._footprints[0]
                 else:
                     src_hierarchy = HierarchySelector(self._board, selected_path_comps).get_elts()
-                    correspondence = FootprintCorrespondence.by_tstamp(src_hierarchy, self._board,
-                                                                       instance_path)
+                    correspondence = self._get_correspondence_fn()(src_hierarchy, self._board, instance_path)
                     instance_anchor = correspondence.get_footprint(self._footprints[0])
                     if instance_anchor is None:
                         continue
@@ -220,7 +244,9 @@ class SubLayoutFrame(wx.Frame):
             for instance_path, instance_anchor in selected_instance_anchors:
                 if instance_path == source_instance_path:
                     continue  # skip self-replication
-                restore = ReplicateSublayout(source_sublayout, self._board, instance_anchor, instance_path)
+
+                restore = ReplicateSublayout(source_sublayout, self._board, instance_anchor, instance_path,
+                                             self._get_correspondence_fn())
                 if self._purge_restore.GetValue():
                     restore.purge_lca()
                 result = restore.replicate()
@@ -258,7 +284,8 @@ class SubLayoutFrame(wx.Frame):
                                          for index in self._instance_list.GetSelections()]
             all_errors = []
             for instance_path, instance_anchor in selected_instance_anchors:
-                restore = ReplicateSublayout(sublayout_board, self._board, instance_anchor, instance_path)
+                restore = ReplicateSublayout(sublayout_board, self._board, instance_anchor, instance_path,
+                                             self._get_correspondence_fn())
                 if self._purge_restore.GetValue():
                     restore.purge_lca()
                 result = restore.replicate()
