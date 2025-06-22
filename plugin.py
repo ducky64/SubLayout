@@ -155,7 +155,7 @@ class SubLayoutFrame(wx.Frame):
 
     def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
         try:
-            selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
+            selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
             result = HierarchySelector(self._board, selected_path_comps).get_elts()
             self._highlighter.clear()
             self._highlighter.highlight(result.ungrouped_elts + result.groups)
