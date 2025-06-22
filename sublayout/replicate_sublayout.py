@@ -24,8 +24,7 @@ class FootprintCorrespondence(NamedTuple):
     @staticmethod
     def by_tstamp(src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...])\
             -> 'FootprintCorrespondence':
-        """Calculates a footprint correspondence using relative-path tstamps.
-        Source path prefix is automatically inferred and asserted checked for consistency"""
+        """Calculates a footprint correspondence using relative-path tstamps."""
         mapped_footprints: List[Tuple[pcbnew.FOOTPRINT, pcbnew.FOOTPRINT]] = []
         source_only_footprints: List[pcbnew.FOOTPRINT] = []
 
@@ -83,8 +82,7 @@ class FootprintCorrespondence(NamedTuple):
         """Calculates a footprint correspondence using relative offset refdes, eg src R1, R3, R4 matches
         target R6, R7, R8, assuming those were the only R* parts in both src and target.
         This is a heuristic for when the src and target tstamps have divered, either over time or because
-        tstamps were never generated (eg, with standalone layout generators).
-        Source path prefix is automatically inferred and asserted checked for consistency"""
+        tstamps were never generated (eg, with standalone layout generators)."""
 
         target_footprints_by_refdes: Dict[str, List[Tuple[int, pcbnew.FOOTPRINT]]] = {}  # R -> [(1, R1), (3, R3), ...]
         target_footprints = target_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
@@ -94,7 +92,7 @@ class FootprintCorrespondence(NamedTuple):
             refdes_type, refdes_num = cls._split_refdes(footprint.GetReferenceAsString())
             target_footprints_by_refdes.setdefault(refdes_type, []).append((refdes_num, footprint))
 
-        source_footprints_by_refdes: Dict[str, List[Tuple[int, pcbnew.FOOTPRINT]]] = {}  #
+        source_footprints_by_refdes: Dict[str, List[Tuple[int, pcbnew.FOOTPRINT]]] = {}
         source_footprints = group_like_recursive_footprints(src)
         for footprint in source_footprints:
             refdes_type, refdes_num = cls._split_refdes(footprint.GetReferenceAsString())
