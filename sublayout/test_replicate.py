@@ -153,6 +153,19 @@ class ReplicateTestCase(unittest.TestCase):
 
         board.Save('test_output_replicate.kicad_pcb')
 
+    def test_replicate_byrefdes(self):
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'Charlie_Unplaced.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('R1')
+
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'CharlieSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        sublayout = ReplicateSublayout(sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1],
+                                       FootprintCorrespondence.by_refdes)
+        self.assertIsNone(sublayout.target_lca())
+        result = sublayout.replicate()
+        self.assertFalse(result.get_error_strs())
+
+        board.Save('test_output_replicate_byrefdes.kicad_pcb')
+
     def test_replicate_multiinstance(self):
         board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TofArray_Unreplicated.kicad_pcb'))  # type: pcbnew.BOARD
         sublayout_source = HierarchySelector(board, BoardUtils.footprint_path(board.FindFootprintByReference('U3'))[:-1]).get_elts()
