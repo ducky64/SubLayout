@@ -1,5 +1,5 @@
 import math
-from typing import Tuple, List, Dict, NamedTuple, Set, Optional, Union, Iterable
+from typing import Tuple, List, Dict, NamedTuple, Set, Optional, Union, Iterable, Callable
 
 import pcbnew
 
@@ -202,14 +202,14 @@ class ReplicateSublayout():
     Computes correspondences on __init__, but replication is done explicitly."""
     def __init__(self, src_board: GroupLike,
                  target_board: pcbnew.BOARD, target_anchor: pcbnew.FOOTPRINT,
-                 target_path_prefix: Tuple[str, ...]) -> None:
+                 target_path_prefix: Tuple[str, ...],
+                 correspondence_fn: Callable[[GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]) -> None:
         self._src = src_board
         self._target_board = target_board
         self._target_anchor = target_anchor
         self._target_path_prefix = target_path_prefix
 
-        self._correspondences = FootprintCorrespondence.by_tstamp(self._src, self._target_board,
-                                                                  self._target_path_prefix)
+        self._correspondences = correspondence_fn(self._src, self._target_board, self._target_path_prefix)
         correspondences_by_tstamp = {  # TODO use FootprintCorrespondence methods to map
             BoardUtils.footprint_path(target_footprint): src_footprint
             for src_footprint, target_footprint in self._correspondences.mapped_footprints

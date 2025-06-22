@@ -1,6 +1,6 @@
 import os
 import traceback
-from typing import List
+from typing import List, Callable, Tuple
 
 import pcbnew
 import wx
@@ -8,7 +8,7 @@ import wx
 from .sublayout.replicate_sublayout import ReplicateSublayout, FootprintCorrespondence
 from .sublayout.hierarchy_namer import HierarchyData
 from .sublayout.save_sublayout import HierarchySelector
-from .sublayout.board_utils import BoardUtils
+from .sublayout.board_utils import BoardUtils, GroupLike
 
 
 class HighlightManager():
@@ -89,9 +89,11 @@ class SubLayoutFrame(wx.Frame):
         matching_bar = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(matching_bar, 0, wx.ALL | wx.ALIGN_CENTER)
         self._match_by_refdes = wx.RadioButton(panel, label="match by relative refdes")
+        self._match_by_refdes.Bind(wx.EVT_RADIOBUTTON, self._on_select_hierarchy)  # changes the matching behavior
         self._match_by_refdes.SetValue(True)  # default, consistent with netlist loading behavior
         matching_bar.Add(self._match_by_refdes)
         self._match_by_tstamp = wx.RadioButton(panel, label="match by tstamp")
+        self._match_by_tstamp.Bind(wx.EVT_RADIOBUTTON, self._on_select_hierarchy)
         matching_bar.Add(self._match_by_tstamp)
 
         button_bar = wx.BoxSizer(wx.HORIZONTAL)
@@ -224,6 +226,14 @@ class SubLayoutFrame(wx.Frame):
             traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
             wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
 
+    def _get_correspondence_fn(self) -> Callable[[GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]:
+        if self._match_by_refdes.GetValue():
+            return FootprintCorrespondence.by_refdes
+        elif self._match_by_tstamp.GetValue():
+            return FootprintCorrespondence.by_tstamp
+        else:
+            raise ValueError("no footprint matching option selected")
+
     def _on_replicate(self, event: wx.CommandEvent) -> None:
         try:
             selected_instance_anchors = [self._instance_list.GetClientData(index)
@@ -235,7 +245,9 @@ class SubLayoutFrame(wx.Frame):
             for instance_path, instance_anchor in selected_instance_anchors:
                 if instance_path == source_instance_path:
                     continue  # skip self-replication
-                restore = ReplicateSublayout(source_sublayout, self._board, instance_anchor, instance_path)
+
+                restore = ReplicateSublayout(source_sublayout, self._board, instance_anchor, instance_path,
+                                             self._get_correspondence_fn())
                 if self._purge_restore.GetValue():
                     restore.purge_lca()
                 result = restore.replicate()
@@ -273,7 +285,8 @@ class SubLayoutFrame(wx.Frame):
                                          for index in self._instance_list.GetSelections()]
             all_errors = []
             for instance_path, instance_anchor in selected_instance_anchors:
-                restore = ReplicateSublayout(sublayout_board, self._board, instance_anchor, instance_path)
+                restore = ReplicateSublayout(sublayout_board, self._board, instance_anchor, instance_path,
+                                             self._get_correspondence_fn())
                 if self._purge_restore.GetValue():
                     restore.purge_lca()
                 result = restore.replicate()
