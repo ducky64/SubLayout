@@ -65,6 +65,7 @@ class SubLayoutFrame(wx.Frame):
         self._board = pcbnew.GetBoard()  # type: pcbnew.BOARD
         self._namer = HierarchyData(self._board)
         self._highlighter = HighlightManager(self._board)
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
         self.Bind(wx.EVT_CLOSE, self._on_close)
 
         footprints = self._board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
@@ -121,6 +122,12 @@ class SubLayoutFrame(wx.Frame):
         sizer.SetSizeHints(self)
 
         self._populate_hierarchy()
+
+    def _on_key(self, event):
+        if event.GetKeyCode() == wx.WXK_ESCAPE:
+            self.Close()
+        else:
+            event.Skip()
 
     def _populate_hierarchy(self) -> None:
         self._hierarchy_list.Clear()
