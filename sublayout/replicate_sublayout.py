@@ -30,8 +30,8 @@ class FootprintCorrespondence(NamedTuple):
         source_only_footprints: List[pcbnew.FOOTPRINT] = []
 
         # calculate target footprints by postfix, since source prefix is not known
-        target_footprints = target_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
         target_footprint_by_postfix: Dict[Tuple[str, ...], pcbnew.FOOTPRINT] = {}
+        target_footprints = target_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
         for footprint in target_footprints:
             if not BoardUtils.footprint_path_startswith(footprint, target_path_prefix):
                 continue  # ignore footprints outside the hierarchy
@@ -41,8 +41,8 @@ class FootprintCorrespondence(NamedTuple):
             target_footprint_by_postfix[footprint_postfix] = footprint
 
         # iterate through all source footprints and match by postfix, storing the prefix
-        source_footprints = group_like_recursive_footprints(src)
         source_prefixes: Set[Tuple[str, ...]] = set()
+        source_footprints = group_like_recursive_footprints(src)
         for footprint in source_footprints:
             footprint_path = BoardUtils.footprint_path(footprint)
             matched = False
@@ -67,6 +67,56 @@ class FootprintCorrespondence(NamedTuple):
 
         return FootprintCorrespondence(mapped_footprints, source_only_footprints, target_only_footprints)
 
+    @staticmethod
+    def _split_refdes(refdes: str) -> Tuple[str, int]:
+        """Splits a refdes into an alpha and numeric portion, at the last non-numeric position."""
+        for i in reversed(range(len(refdes))):
+            if refdes[i].isalpha():
+                if i == len(refdes) - 1:
+                    return refdes, -1  # fallback if no numeric portion
+                return refdes[:i+1], int(refdes[i+1:])
+        return "", int(refdes)
+
+    @classmethod
+    def by_refdes(cls, src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...]) \
+        -> 'FootprintCorrespondence':
+        """Calculates a footprint correspondence using relative offset refdes, eg src R1, R3, R4 matches
+        target R6, R7, R8, assuming those were the only R* parts in both src and target.
+        This is a heuristic for when the src and target tstamps have divered, either over time or because
+        tstamps were never generated (eg, with standalone layout generators).
+        Source path prefix is automatically inferred and asserted checked for consistency"""
+
+        target_footprints_by_refdes: Dict[str, List[Tuple[int, pcbnew.FOOTPRINT]]] = {}  # R -> [(1, R1), (3, R3), ...]
+        target_footprints = target_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
+        for footprint in target_footprints:
+            if not BoardUtils.footprint_path_startswith(footprint, target_path_prefix):
+                continue  # ignore footprints outside the hierarchy
+            refdes_type, refdes_num = cls._split_refdes(footprint.GetReferenceAsString())
+            target_footprints_by_refdes.setdefault(refdes_type, []).append((refdes_num, footprint))
+
+        source_footprints_by_refdes: Dict[str, List[Tuple[int, pcbnew.FOOTPRINT]]] = {}  #
+        source_footprints = group_like_recursive_footprints(src)
+        for footprint in source_footprints:
+            refdes_type, refdes_num = cls._split_refdes(footprint.GetReferenceAsString())
+            source_footprints_by_refdes.setdefault(refdes_type, []).append((refdes_num, footprint))
+
+        mapped_footprints: List[Tuple[pcbnew.FOOTPRINT, pcbnew.FOOTPRINT]] = []
+        source_only_footprints: List[pcbnew.FOOTPRINT] = []
+        target_only_footprints: List[pcbnew.FOOTPRINT] = []
+        for refdes_type in set(target_footprints_by_refdes.keys()).union(source_footprints_by_refdes.keys()):
+            target_num_footprints = target_footprints_by_refdes.get(refdes_type, [])
+            source_num_footprints = source_footprints_by_refdes.get(refdes_type, [])
+            source_footprints = [footprint for num, footprint in sorted(source_num_footprints, key=lambda x: x[0])]
+            target_footprints = [footprint for num, footprint in sorted(target_num_footprints, key=lambda x: x[0])]
+
+            for source_footprint, target_footprint in zip(source_footprints, target_footprints):
+                mapped_footprints.append((source_footprint, target_footprint))
+            if len(source_footprints) > len(target_footprints):
+                source_only_footprints.extend(source_footprints[len(target_footprints):])
+            else:
+                target_only_footprints.extend(target_footprints[len(source_footprints):])
+
+        return FootprintCorrespondence(mapped_footprints, source_only_footprints, target_only_footprints)
 
 class PositionTransform():
     """A class that represents a position transform from source to target board.

@@ -38,10 +38,18 @@ class ReplicateTestCase(unittest.TestCase):
         anchor = board.FindFootprintByReference('R1')
 
         sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'CharlieSublayout.kicad_pcb'))  # type: pcbnew.BOARD
-        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
+        correspondence = FootprintCorrespondence.by_refdes(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
         self.assertEqual(len(correspondence.mapped_footprints), 9)
         self.assertEqual(len(correspondence.source_only_footprints), 0)
         self.assertEqual(len(correspondence.target_only_footprints), 0)
+        for src_footprint, target_footprint in correspondence.mapped_footprints:
+            self.assertEqual(src_footprint.GetReferenceAsString(), target_footprint.GetReferenceAsString())
+
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'CharlieHalfSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        correspondence = FootprintCorrespondence.by_refdes(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
+        self.assertEqual(len(correspondence.mapped_footprints), 6)
+        self.assertEqual(len(correspondence.source_only_footprints), 0)
+        self.assertEqual(len(correspondence.target_only_footprints), 3)
 
     def test_correspondences_byrefdes_complex(self):
         # this test case has the target D and R refdeses not line up
@@ -49,10 +57,20 @@ class ReplicateTestCase(unittest.TestCase):
         anchor = board.FindFootprintByReference('R4')
 
         sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'CharlieSublayout.kicad_pcb'))  # type: pcbnew.BOARD
-        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
+        correspondence = FootprintCorrespondence.by_refdes(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
         self.assertEqual(len(correspondence.mapped_footprints), 9)
         self.assertEqual(len(correspondence.source_only_footprints), 0)
         self.assertEqual(len(correspondence.target_only_footprints), 0)
+        for src_footprint, target_footprint in correspondence.mapped_footprints:
+            src_type, src_num = FootprintCorrespondence._split_refdes(src_footprint.GetReferenceAsString())
+            target_type, target_num = FootprintCorrespondence._split_refdes(target_footprint.GetReferenceAsString())
+            self.assertEqual(src_type, target_type)
+            if src_type == 'D':
+                self.assertEqual(src_num + 1, target_num)
+            elif src_type == 'R':
+                self.assertEqual(src_num + 3, target_num)
+            else:
+                raise ValueError(f"bad src_type {src_type} in {src_footprint.GetReferenceAsString()}")
 
     def test_correspondences_multiinstance(self):
         """Tests correspondence generation with a board with multiple instances of a hierarchy block"""
