@@ -145,6 +145,14 @@ class SubLayoutFrame(wx.Frame):
             self._hierarchy_list.SetSelection(0)
             self._on_select_hierarchy(wx.CommandEvent(id=0))
 
+    def _get_correspondence_fn(self) -> Callable[[GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]:
+        if self._match_by_refdes.GetValue():
+            return FootprintCorrespondence.by_refdes
+        elif self._match_by_tstamp.GetValue():
+            return FootprintCorrespondence.by_tstamp
+        else:
+            raise ValueError("no footprint matching option selected")
+
     def _on_select_hierarchy(self, event: wx.CommandEvent) -> None:
         try:
             selected_path_comps = self._hierarchy_list.GetClientData(event.GetSelection())
@@ -167,15 +175,7 @@ class SubLayoutFrame(wx.Frame):
                     instance_anchor = self._footprints[0]
                 else:
                     src_hierarchy = HierarchySelector(self._board, selected_path_comps).get_elts()
-                    if self._match_by_refdes.GetValue():
-                        correspondence = FootprintCorrespondence.by_refdes(src_hierarchy, self._board,
-                                                                           instance_path)
-                    elif self._match_by_tstamp.GetValue():
-                        correspondence = FootprintCorrespondence.by_tstamp(src_hierarchy, self._board,
-                                                                           instance_path)
-                    else:
-                        raise ValueError("no footprint matching option selected")
-
+                    correspondence = self._get_correspondence_fn()(src_hierarchy, self._board, instance_path)
                     instance_anchor = correspondence.get_footprint(self._footprints[0])
                     if instance_anchor is None:
                         continue
@@ -232,14 +232,6 @@ class SubLayoutFrame(wx.Frame):
         except Exception as e:
             traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
             wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
-
-    def _get_correspondence_fn(self) -> Callable[[GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]:
-        if self._match_by_refdes.GetValue():
-            return FootprintCorrespondence.by_refdes
-        elif self._match_by_tstamp.GetValue():
-            return FootprintCorrespondence.by_tstamp
-        else:
-            raise ValueError("no footprint matching option selected")
 
     def _on_replicate(self, event: wx.CommandEvent) -> None:
         try:
