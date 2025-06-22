@@ -118,6 +118,7 @@ class FootprintCorrespondence(NamedTuple):
 
         return FootprintCorrespondence(mapped_footprints, source_only_footprints, target_only_footprints)
 
+
 class PositionTransform():
     """A class that represents a position transform from source to target board.
     The transform is defined by the source and target anchor footprints and the source and target positions."""
@@ -269,8 +270,8 @@ class ReplicateSublayout():
         result.target_footprints_missing_source.extend(self._correspondences.target_only_footprints)
 
         # iterate through all elements in source board, by group, replicating tracks and stuff, recursively
-        target_footprint_by_src_tstamp = {
-            BoardUtils.footprint_path(src_footprint): target_footprint
+        target_footprint_by_src_refdes = {
+            src_footprint.GetReferenceAsString(): target_footprint
             for src_footprint, target_footprint in self._correspondences.mapped_footprints
         }
         def recurse_group(source_group: GroupLike,
@@ -282,11 +283,10 @@ class ReplicateSublayout():
                     target_group.AddItem(new_group)
                     recurse_group(item, new_group)
                 elif isinstance(item, pcbnew.FOOTPRINT):  # move footprints without replacing
-                    target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(item))
+                    target_footprint = target_footprint_by_src_refdes.get(item.GetReferenceAsString())
                     if target_footprint is None:
                         result.source_footprints_unused.append(item)
                         continue
-
                     target_group.AddItem(target_footprint)
                     target_footprint.SetParentGroup(target_group)
 
@@ -307,7 +307,7 @@ class ReplicateSublayout():
                         src_netcode_pads = self._get_netcode_pads(item.GetBoard(), item.GetNetCode())
                         target_netcodes: Set[int] = set()
                         for footprint, pad in src_netcode_pads:
-                            target_footprint = target_footprint_by_src_tstamp.get(BoardUtils.footprint_path(footprint))
+                            target_footprint = target_footprint_by_src_refdes.get(footprint.GetReferenceAsString())
                             if target_footprint is None:  # ignore
                                 continue
                             target_pad = target_footprint.FindPadByNumber(pad.GetNumber())  # type: pcbnew.PAD
