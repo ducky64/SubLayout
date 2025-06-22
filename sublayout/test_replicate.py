@@ -33,6 +33,27 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertEqual(len(correspondence.source_only_footprints), 1)  # just J1, which is out of scope
         self.assertEqual(len(correspondence.target_only_footprints), 0)
 
+    def test_correspondences_byrefdes(self):
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'Charlie_Unplaced.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('R1')
+
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'CharlieSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
+        self.assertEqual(len(correspondence.mapped_footprints), 9)
+        self.assertEqual(len(correspondence.source_only_footprints), 0)
+        self.assertEqual(len(correspondence.target_only_footprints), 0)
+
+    def test_correspondences_byrefdes_complex(self):
+        # this test case has the target D and R refdeses not line up
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'CharlieRgb_Unplaced.kicad_pcb'))  # type: pcbnew.BOARD
+        anchor = board.FindFootprintByReference('R4')
+
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'CharlieSublayout.kicad_pcb'))  # type: pcbnew.BOARD
+        correspondence = FootprintCorrespondence.by_tstamp(sublayout_board, board, BoardUtils.footprint_path(anchor)[:-1])
+        self.assertEqual(len(correspondence.mapped_footprints), 9)
+        self.assertEqual(len(correspondence.source_only_footprints), 0)
+        self.assertEqual(len(correspondence.target_only_footprints), 0)
+
     def test_correspondences_multiinstance(self):
         """Tests correspondence generation with a board with multiple instances of a hierarchy block"""
         board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TofArray_Unreplicated.kicad_pcb'))  # type: pcbnew.BOARD
