@@ -89,7 +89,7 @@ class SubLayoutFrame(wx.Frame):
 
         matching_bar = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(matching_bar, 0, wx.ALL | wx.ALIGN_CENTER)
-        self._match_by_refdes = wx.RadioButton(panel, label="match by relative refdes")
+        self._match_by_refdes = wx.RadioButton(panel, label="match by relative refdes", style=wx.RB_GROUP)
         self._match_by_refdes.Bind(wx.EVT_RADIOBUTTON, self._on_select_hierarchy)  # changes the matching behavior
         self._match_by_refdes.SetValue(True)  # default, consistent with netlist loading behavior
         matching_bar.Add(self._match_by_refdes)
