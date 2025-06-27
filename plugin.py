@@ -1,6 +1,6 @@
 import os
 import traceback
-from typing import List, Callable, Tuple
+from typing import List, Callable, Tuple, Optional, cast
 
 import pcbnew
 import wx
@@ -57,6 +57,8 @@ class SublayoutInitError(Exception):
 
 
 class SubLayoutFrame(wx.Frame):
+    _last_dir: Optional[str] = None  # class variable to persist across plugin runs
+
     def __init__(self, parent):
         wx.Frame.__init__(self, parent, title="SubLayout", size=(300, 200))
         panel = wx.Panel(self)
@@ -213,15 +215,25 @@ class SubLayoutFrame(wx.Frame):
         pcbnew.Refresh()
         self.Destroy()
 
+    def _get_dialog_directory(self) -> str:
+        """Returns the last used directory or the current working directory."""
+        if self._last_dir is not None and os.path.exists(self._last_dir):
+            return self._last_dir
+        board_dir = os.path.dirname(cast(pcbnew.BOARD, pcbnew.GetBoard()).GetFileName())
+        if board_dir and os.path.exists(board_dir):
+            return board_dir
+        return os.getcwd()  # fallback
+
     def _on_save(self, event: wx.CommandEvent) -> None:
         try:
             selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
             save_sublayout = HierarchySelector(self._board, selected_path_comps)
-            dlg = wx.FileDialog(self, "Save to", os.getcwd(),
+            dlg = wx.FileDialog(self, "Save to", self._get_dialog_directory(),
                                 '_'.join(self._namer.name_path(selected_path_comps)),
                                 "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
                                 wx.FD_SAVE)
             res = dlg.ShowModal()
+            self.__class__._last_dir = os.path.dirname(dlg.GetPath())
             if res != wx.ID_OK:
                 return
 
@@ -267,11 +279,12 @@ class SubLayoutFrame(wx.Frame):
     def _on_restore(self, event: wx.CommandEvent) -> None:
         try:
             selected_path_comps = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
-            dlg = wx.FileDialog(self, "Restore sublayout from", os.getcwd(),
+            dlg = wx.FileDialog(self, "Restore sublayout from", self._get_dialog_directory(),
                                 '_'.join(self._namer.name_path(selected_path_comps)),
                                 "KiCad (sub)board (*.kicad_pcb)|*.kicad_pcb",
                                 wx.FD_OPEN)
             res = dlg.ShowModal()
+            self.__class__._last_dir = os.path.dirname(dlg.GetPath())
             if res != wx.ID_OK:
                 return
 
