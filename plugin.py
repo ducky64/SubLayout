@@ -58,6 +58,7 @@ class SublayoutInitError(Exception):
 
 class SubLayoutFrame(wx.Frame):
     _last_dir: Optional[str] = None  # class variable to persist across plugin runs
+    _last_position: Optional[wx.Point] = None
 
     def __init__(self, parent):
         wx.Frame.__init__(self, parent, title="SubLayout", size=(300, 200))
@@ -122,6 +123,9 @@ class SubLayoutFrame(wx.Frame):
 
         panel.SetSizer(sizer)
         sizer.SetSizeHints(self)
+
+        if self._last_position is not None:
+            self.SetPosition(self._last_position)
 
         self._populate_hierarchy()
 
@@ -211,6 +215,7 @@ class SubLayoutFrame(wx.Frame):
             wx.MessageBox(f"Error: {e}\n\n{traceback_str}", "Error", wx.OK | wx.ICON_ERROR)
 
     def _on_close(self, event: wx.CommandEvent) -> None:
+        self.__class__._last_position = self.GetPosition()
         self._highlighter.clear()
         pcbnew.Refresh()
         self.Destroy()
