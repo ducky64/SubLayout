@@ -258,6 +258,8 @@ class SubLayoutFrame(wx.Frame):
             source_instance_path = self._hierarchy_list.GetClientData(self._hierarchy_list.GetSelection())
             source_sublayout = HierarchySelector(self._board, source_instance_path).get_elts()
 
+            self._highlighter.clear()  # clear highlights so they don't get replicated
+
             for instance_path, instance_anchor in selected_instance_anchors:
                 if instance_path == source_instance_path:
                     continue  # skip self-replication
