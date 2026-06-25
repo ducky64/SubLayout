@@ -6,6 +6,27 @@ if TYPE_CHECKING:
     from .save_sublayout import FilterResult
 
 
+def iterable_to_py(iterable: Any) -> List[Any]:
+    """Newer KiCad versions do not properly wrap some iterator types, this works around it."""
+    try:
+        return iter(iterable)
+    except TypeError:
+        output = []
+        while True:
+            item = iterable.next()
+            if item is None:
+              break
+            output.append(item)
+        return output
+        
+def group_parent(group: Any) -> Any:  # pcbnew.EDA_GROUP in newer KiCad versions
+    """Newer KiCad versions change the parent group API"""
+    try:
+        return group.GetParentGroup()
+    except AttributeError:
+        return group.AsEdaItem().GetParentGroup()
+        
+
 class BoardUtils():
     @classmethod
     def footprint_path(cls, footprint: pcbnew.FOOTPRINT) -> Tuple[str, ...]:
@@ -34,7 +55,7 @@ class GroupWrapper():
             group_path = []
             while group._group is not None:
                 group_path.append(group)
-                group = GroupWrapper(group._group.GetParentGroup())
+                group = GroupWrapper(group_parent(group._group))
             group_paths.append(list(reversed(group_path)))
         # return the deepest group that is common to all paths
         i = 0  # base case
@@ -58,7 +79,7 @@ class GroupWrapper():
                 continue
             test_group = group
             while test_group._group is not None:
-                test_group = GroupWrapper(test_group._group.GetParentGroup())
+                test_group = GroupWrapper(group_parent(test_group._group))
                 if test_group in groups:  # is child of a higher element in the group
                     break
             if test_group._group is None:  # made it to root
@@ -93,7 +114,7 @@ class GroupWrapper():
     def __init__(self, group: Optional[pcbnew.PCB_GROUP]) -> None:
         self._group = group
         if self._group is not None:
-            self._key: Optional[frozenset[Any]] = frozenset([self._elt_to_key(item) for item in self._group.GetItems()])
+            self._key: Optional[frozenset[Any]] = frozenset([self._elt_to_key(item) for item in iterable_to_py(self._group.GetItems())])
         else:
             self._key = None
 
@@ -101,7 +122,7 @@ class GroupWrapper():
         """Recursively yields all items in the group and its subgroups"""
         if self._group is None:
             return
-        for item in self._group.GetItems():
+        for item in iterable_to_py(self._group.GetItems()):
             if isinstance(item, pcbnew.PCB_GROUP):
                 yield from GroupWrapper(item).recursive_items()
             else:
@@ -111,7 +132,7 @@ class GroupWrapper():
         """Returns the sorted footprint references in the group"""
         if self._group is None:
             return ()
-        footprints = [elt for elt in self._group.GetItems() if isinstance(elt, pcbnew.FOOTPRINT)]
+        footprints = [elt for elt in iterable_to_py(self._group.GetItems()) if isinstance(elt, pcbnew.FOOTPRINT)]
         return tuple(sorted([fp.GetReference() for fp in footprints]))
 
     def __repr__(self) -> str:
@@ -119,7 +140,7 @@ class GroupWrapper():
             return f"GroupWrapper(None)"
 
         sorted_refs = self.sorted_footprint_refs()
-        item_count = len(self._group.GetItems())
+        item_count = len(iterable_to_py(self._group.GetItems()))
         if self._group.GetName():
             return f"GroupWrapper({self._group.GetName()}: {item_count}; {', '.join(sorted_refs)})"
         else:
@@ -134,7 +155,7 @@ def group_like_items(grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
     from .save_sublayout import FilterResult
 
     if isinstance(grouplike, pcbnew.PCB_GROUP):
-        return grouplike.GetItems()
+        return iterable_to_py(grouplike.GetItems())
     elif isinstance(grouplike, pcbnew.BOARD):
         groups = [group for group in grouplike.Groups()]  # type: List[pcbnew.PCB_GROUP]
         footprints = [item for item in grouplike.GetFootprints()]  # type: List[pcbnew.FOOTPRINT]

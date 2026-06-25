@@ -3,7 +3,7 @@ from typing import Tuple, List, Dict, NamedTuple, Set, Optional, Union, Iterable
 
 import pcbnew
 
-from .board_utils import BoardUtils, GroupWrapper, GroupLike, group_like_items, group_like_recursive_footprints
+from .board_utils import BoardUtils, GroupWrapper, GroupLike, group_like_items, group_like_recursive_footprints, iterable_to_py
 
 
 class FootprintCorrespondence(NamedTuple):
@@ -249,7 +249,7 @@ class ReplicateSublayout():
         """Deletes replicate-able items (excluding footprints) from the LCA"""
         def recurse_group(group: pcbnew.PCB_GROUP) -> None:
             """Recursively deletes all items in the group."""
-            for item in group.GetItems():
+            for item in iterable_to_py(group.GetItems()):
                 if isinstance(item, pcbnew.PCB_GROUP):
                     recurse_group(item)
                 if isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):

@@ -2,7 +2,7 @@ from typing import Tuple, List, Dict, Set, NamedTuple, Union, Optional, Type
 
 import pcbnew
 
-from .board_utils import BoardUtils, GroupWrapper
+from .board_utils import BoardUtils, GroupWrapper, iterable_to_py
 
 
 class FilterResult(NamedTuple):
@@ -28,14 +28,17 @@ class HierarchySelector():
 
         # clone loose items
         for elt in result.ungrouped_elts:
-            cloned = elt.Duplicate()
+            try:
+                cloned = elt.Duplicate()
+            except TypeError:
+                cloned = elt.Duplicate(True)  # required addToParentGroup in newer KiCad versions
             board.Add(cloned)
 
         def clone_group(group: pcbnew.PCB_GROUP, target_group: Optional[pcbnew.PCB_GROUP]) -> None:
             """Recursively clones a group and its contents.
             If specified, target group is a group in the target to group the items,
             otherwise items added to board top"""
-            for item in group.GetItems():
+            for item in iterable_to_py(group.GetItems()):
                 if isinstance(item, pcbnew.PCB_GROUP):
                     new_group = pcbnew.PCB_GROUP(board)
                     board.Add(new_group)
@@ -68,7 +71,7 @@ class HierarchySelector():
 
         def delete_group(group: pcbnew.PCB_GROUP) -> None:
             """Recursively deletes a group and its contents."""
-            for item in group.GetItems():
+            for item in iterable_to_py(group.GetItems()):
                 if isinstance(item, pcbnew.PCB_GROUP):
                     delete_group(item)
                 if not isinstance(item, exclude_types):
