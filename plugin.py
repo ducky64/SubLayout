@@ -1,5 +1,6 @@
 import os
 import traceback
+import re
 from typing import List, Callable, Tuple, Optional, cast
 
 import pcbnew
@@ -175,19 +176,33 @@ class SubLayoutFrame(wx.Frame):
             sheetfile = self._namer.sheetfile_of(selected_path_comps)
             assert sheetfile is not None, "internal consistency failure: no sheetfile for selected hierarchy"
             self_index = None
-            for index, instance_path in enumerate(self._namer.instances_of(sheetfile)):
+            
+            instance_path_anchors = []
+            for instance_path in self._namer.instances_of(sheetfile):
+                src_hierarchy = HierarchySelector(self._board, selected_path_comps).get_elts()
+                correspondence = self._get_correspondence_fn()(src_hierarchy, self._board, instance_path)
+                instance_anchor = correspondence.get_footprint(self._footprints[0])
+                if instance_anchor is None:
+                    continue
+                instance_path_anchors.append((instance_path, instance_anchor))
+            
+            def refdes_sort_key(refdes: str) -> Tuple[str, int]:
+                # split refdes into alpha prefix + numeric tail for natural sorting
+                match = re.match(r"^(.*?)(\d*)$", refdes)
+                if match:
+                    prefix, tail = match.groups()
+                    tail = int(tail) if tail else 0
+                    return prefix, tail
+                return refdes, 0
+            instance_path_anchors = sorted(instance_path_anchors, key=lambda tup: refdes_sort_key(tup[1].GetReference()))
+            
+            for index, (instance_path, instance_anchor) in enumerate(instance_path_anchors):
                 if instance_path == selected_path_comps:
                     self_index = index
-                    instance_anchor = self._footprints[0]
-                else:
-                    src_hierarchy = HierarchySelector(self._board, selected_path_comps).get_elts()
-                    correspondence = self._get_correspondence_fn()(src_hierarchy, self._board, instance_path)
-                    instance_anchor = correspondence.get_footprint(self._footprints[0])
-                    if instance_anchor is None:
-                        continue
                 instance_name = '/'.join(self._namer.name_path(instance_path))
                 self._instance_list.Append(f"{instance_anchor.GetReference()} {instance_name}",
                                            (instance_path, instance_anchor))
+
             assert self_index is not None, "internal consistency failure: no instance for selected hierarchy"
             self._instance_list.SetSelection(self_index)
             self._on_select_instances(wx.CommandEvent(id=self_index))
