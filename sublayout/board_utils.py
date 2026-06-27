@@ -9,9 +9,11 @@ if TYPE_CHECKING:
 try:
     from pcbnew import EDA_GROUP
     PcbGroupType = EDA_GROUP
+    IsKicad10 = True
 
 except ImportError:
     PcbGroupType = pcbnew.PCB_GROUP
+    IsKicad10 = False
 
 
 def iterable_to_py(iterable: Any) -> List[Any]:

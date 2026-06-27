@@ -3,7 +3,7 @@ from typing import Tuple, List, Dict, Set, NamedTuple, Union, Optional, Type
 import pcbnew
 import wx
 
-from .board_utils import BoardUtils, GroupWrapper, PcbGroupType
+from .board_utils import BoardUtils, GroupWrapper, PcbGroupType, IsKicad10
 
 
 class FilterResult(NamedTuple):
@@ -47,7 +47,10 @@ class HierarchySelector():
                         target_group.AddItem(new_group)
                     clone_group(item, new_group)
                 else:
-                    cloned_item = item.Duplicate()
+                    if IsKicad10 and isinstance(item, pcbnew.FOOTPRINT):
+                        cloned_item = item.Duplicate(False)
+                    else:
+                        cloned_item = item.Duplicate()
                     board.Add(cloned_item)
                     if target_group is not None:
                         target_group.AddItem(cloned_item)
