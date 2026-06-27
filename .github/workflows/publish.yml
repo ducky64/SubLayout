@@ -15,3 +15,8 @@ jobs:
           version: ${{ github.ref_name }}
           status: "development"
           deploy: false
+          # TODO: deduplicate; the following is duplicated with the current metadata skeleton
+          # unfortunately actions-kicad-addon insists on owning all the fields
+          desc: "A plugin to replicate, load, and save layouts of hierarchical sheets."
+          kicad_version: "8.0"
+          license: "BSD-3-clause"
