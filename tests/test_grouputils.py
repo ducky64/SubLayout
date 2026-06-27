@@ -3,12 +3,12 @@ import unittest
 
 import pcbnew
 
-from .board_utils import GroupWrapper, IsKicad10
+from sublayout.board_utils import GroupWrapper, IsKicad10
 
 
 class GroupUtilsTestCase(unittest.TestCase):
     def test_group_equals(self):
-        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
+        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
         group1 = GroupWrapper(src_board, src_board.FindFootprintByReference('J1').GetParentGroup())
         group2 = GroupWrapper(src_board, src_board.FindFootprintByReference('J1').GetParentGroup())
         self.assertIsNotNone(group1._group)
@@ -25,7 +25,7 @@ class GroupUtilsTestCase(unittest.TestCase):
         self.assertNotEqual(group1, group_r2)
 
     def test_group_lca(self):
-        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
+        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
         group_j1 = GroupWrapper(src_board, src_board.FindFootprintByReference('J1').GetParentGroup())
         group_r1 = GroupWrapper(src_board, src_board.FindFootprintByReference('R1').GetParentGroup())
         group_r2 = GroupWrapper(src_board, src_board.FindFootprintByReference('R2').GetParentGroup())
@@ -45,7 +45,7 @@ class GroupUtilsTestCase(unittest.TestCase):
         self.assertIsNone(group_j1.lowest_common_ancestor([group_none, group_j1]))
 
     def test_group_highest_covering(self):
-        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
+        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
         group_j1 = GroupWrapper(src_board, src_board.FindFootprintByReference('J1').GetParentGroup())
         group_r1 = GroupWrapper(src_board, src_board.FindFootprintByReference('R1').GetParentGroup())
         group_r2 = GroupWrapper(src_board, src_board.FindFootprintByReference('R2').GetParentGroup())

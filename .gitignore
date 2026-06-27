@@ -180,4 +180,5 @@ fp-info-cache
 *.kicad_pcb.lck
 *.net
 test_output*.kicad_pcb
+test.kicad_pcb
 _autosave-*.kicad_pcb

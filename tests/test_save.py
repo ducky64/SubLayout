@@ -3,13 +3,13 @@ import unittest
 
 import pcbnew
 
-from .board_utils import BoardUtils, GroupWrapper
-from .save_sublayout import HierarchySelector
+from sublayout.board_utils import BoardUtils, GroupWrapper
+from sublayout.save_sublayout import HierarchySelector
 
 
 class SaveTestCase(unittest.TestCase):
     def test_save(self):
-        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete.kicad_pcb'))
+        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TestBlinkyComplete.kicad_pcb'))
         board = HierarchySelector(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('U2'))[:-1]
                                   ).create_sublayout("test.kicad_pcb")
         board.Save('test_output_mcu.kicad_pcb')
@@ -36,7 +36,7 @@ class SaveTestCase(unittest.TestCase):
         self.assertEqual(footprint_refs, {'R1', 'R2'})
 
     def test_save_group(self):
-        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
+        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
         selector = HierarchySelector(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1])
         result = selector.get_elts()
         self.assertEqual(len(result.ungrouped_elts), 0)  # no loose elts
@@ -46,7 +46,7 @@ class SaveTestCase(unittest.TestCase):
         board.Save('test_output_usb_grouped.kicad_pcb')
 
     def test_delete_group(self):
-        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
+        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))
         selector = HierarchySelector(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1])
         self.assertIsNotNone(src_board.FindFootprintByReference('J1').GetParentGroup())
         selector.delete((pcbnew.FOOTPRINT,))
@@ -57,7 +57,7 @@ class SaveTestCase(unittest.TestCase):
         src_board.Save('test_output_deletedusb.kicad_pcb')
 
     def test_get_ungrouped(self):
-        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'BareBlinkyComplete.kicad_pcb'))
+        src_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'BareBlinkyComplete.kicad_pcb'))
         selector = HierarchySelector(src_board, BoardUtils.footprint_path(src_board.FindFootprintByReference('J1'))[:-1])
         result = selector.get_elts()
         self.assertEqual(len(result.ungrouped_elts), 3)  # 3 footprints

@@ -3,13 +3,13 @@ import unittest
 
 import pcbnew
 
-from .board_utils import BoardUtils
-from .hierarchy_namer import HierarchyData
+from sublayout.board_utils import BoardUtils
+from sublayout.hierarchy_namer import HierarchyData
 
 
 class NamingTestCase(unittest.TestCase):
     def test_naming(self):
-        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete.kicad_pcb'))  # type: pcbnew.BOARD
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TestBlinkyComplete.kicad_pcb'))  # type: pcbnew.BOARD
         namer = HierarchyData(board)
 
         self.assertEqual(namer.containing_name(board.FindFootprintByReference('U2')), 'mcu')
@@ -24,7 +24,7 @@ class NamingTestCase(unittest.TestCase):
         self.assertEqual(namer.containing_name(board.FindFootprintByReference('R2')), 'usb/cc_pull')
 
     def test_instances_of(self):
-        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TestBlinkyComplete.kicad_pcb'))  # type: pcbnew.BOARD
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TestBlinkyComplete.kicad_pcb'))  # type: pcbnew.BOARD
         namer = HierarchyData(board)
 
         self.assertEqual(namer.sheetfile_of(BoardUtils.footprint_path(board.FindFootprintByReference('U2'))[:-1]), 'edg.parts.Microcontroller_Stm32f103.Stm32f103_48')
@@ -34,7 +34,7 @@ class NamingTestCase(unittest.TestCase):
         self.assertEqual(namer.sheetfile_of(BoardUtils.footprint_path(board.FindFootprintByReference('R1'))[:-2]), 'edg.parts.UsbPorts.UsbCReceptacle')
 
     def test_multi_instances_of(self):
-        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'tests', 'TofArray.kicad_pcb'))  # type: pcbnew.BOARD
+        board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TofArray.kicad_pcb'))  # type: pcbnew.BOARD
         namer = HierarchyData(board)
 
         tof_path = BoardUtils.footprint_path(board.FindFootprintByReference('U4'))[:-1]
