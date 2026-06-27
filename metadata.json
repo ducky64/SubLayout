@@ -23,7 +23,7 @@
   },
   "versions": [
     {
-      "version": "0.1",
+      "version": "latest-placeholder",
       "status": "development",
       "kicad_version": "8.0",
       "kicad_version_max": "10.0"

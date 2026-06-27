@@ -10,19 +10,22 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      # TODO: actions-kicad-addon tacks on a v in front of the version, so we have to undo that here
-      # this is a total hack
-      - name: Clean version tag
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Package plugin and create metadata
         run: |
-            CLEAN_VERSION="${{ github.ref_name }}"
-            echo "CLEAN_VERSION=${CLEAN_VERSION#v}" >> $GITHUB_ENV
-      - uses: cooked/actions-kicad-addon@v0.1.0
+            mkdir plugins
+            mv sublayout plugins/
+            mv __init__.py plugin.py icon_24.png plugins/
+            python release_metadata.py metadata.json \
+                --url "${{github.server_url}}/${{github.repository}}/releases/download/${{github.event.release.tag_name}}/${{ github.event.repository.name }}-pcm.zip" \
+                --version "${{ github.event.release.tag_name }}"
+            zip -r ${{ github.event.repository.name }}-pcm.zip plugins/ resources/ metadata.json
+            python release_metadata.py metadata.json --package ${{ github.event.repository.name }}-pcm.zip
+      - name: Upload Assets to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          version: ${{ env.CLEAN_VERSION }}
-          status: "development"
-          deploy: false
-          # TODO: deduplicate; the following is duplicated with the current metadata skeleton
-          # unfortunately actions-kicad-addon insists on owning all the fields
-          desc: "A plugin to replicate, load, and save layouts of hierarchical sheets."
-          kicad_version: "8.0"
-          license: "BSD-3-clause"
+          tag_name: "${{ github.event.release.tag_name }}"
+          files: |
+            ${{ github.event.repository.name }}-pcm.zip
+            metadata.json
