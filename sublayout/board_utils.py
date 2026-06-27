@@ -14,19 +14,6 @@ except ImportError:
     PcbGroupType = pcbnew.PCB_GROUP
     IsKicad10 = False
 
-
-def iterable_to_py(iterable: Any) -> List[Any]:
-    """Newer KiCad versions do not properly wrap some iterator types, this works around it."""
-    try:
-        return iter(iterable)
-    except TypeError:
-        output = []
-        while True:
-            item = iterable.next()
-            if item is None:
-              break
-            output.append(item)
-        return output
         
 def group_parent(group: Any) -> Any:  # pcbnew.EDA_GROUP in newer KiCad versions
     """Newer KiCad versions change the parent group API"""
@@ -125,8 +112,9 @@ class GroupWrapper():
       return GroupWrapper(None, None)
 
     def __init__(self, board: Optional[pcbnew.BOARD], group: Optional[PcbGroupType]) -> None:
-        self._board = board
         assert isinstance(board, pcbnew.BOARD) or board is None
+        assert isinstance(group, PcbGroupType) or group is None
+        self._board = board
         self._group = group
         if self._group is not None:
             self._key: Optional[frozenset[Any]] = frozenset([self._elt_to_key(item) for item in self.items()])
@@ -137,9 +125,11 @@ class GroupWrapper():
         """Yields all items in the group (non-recursive)"""
         if self._group is None:
             return []
-        member_ids = self._group.GetGroupMemberIds()
-        return [self._board.ResolveItem(member_id).Cast() for member_id in member_ids]
-        # return self._group.GetItems()
+        if IsKicad10:
+            member_ids = self._group.GetGroupMemberIds()
+            return [self._board.ResolveItem(member_id).Cast() for member_id in member_ids]
+        else:
+            return self._group.GetItems()
 
     def recursive_items(self):
         """Recursively yields all items in the group and its subgroups"""

@@ -1,7 +1,7 @@
 import os
 import traceback
 import re
-from typing import List, Callable, Tuple, Optional, cast
+from typing import List, Callable, Tuple, Optional, cast, Iterable
 
 import pcbnew
 import wx  # type: ignore
@@ -29,7 +29,7 @@ class HighlightManager():
         self._board = board
         self._highlighted_items: List[pcbnew.EDA_ITEM] = []
 
-    def highlight(self, items: List[pcbnew.EDA_ITEM]) -> None:
+    def highlight(self, items: Iterable[pcbnew.EDA_ITEM]) -> None:
         """Highlights the given items on the board."""
         for item in items:
             if isinstance(item, pcbnew.FOOTPRINT):
@@ -285,7 +285,7 @@ class SubLayoutFrame(wx.Frame):
                 if instance_path == source_instance_path:
                     continue  # skip self-replication
 
-                restore = ReplicateSublayout(source_sublayout, self._board, instance_anchor, instance_path,
+                restore = ReplicateSublayout(self._board, source_sublayout, self._board, instance_anchor, instance_path,
                                              self._get_correspondence_fn())
                 if self._purge_restore.GetValue():
                     restore.purge_lca()
@@ -325,7 +325,7 @@ class SubLayoutFrame(wx.Frame):
                                          for index in self._instance_list.GetSelections()]
             all_errors = []
             for instance_path, instance_anchor in selected_instance_anchors:
-                restore = ReplicateSublayout(sublayout_board, self._board, instance_anchor, instance_path,
+                restore = ReplicateSublayout(sublayout_board, sublayout_board, self._board, instance_anchor, instance_path,
                                              self._get_correspondence_fn())
                 if self._purge_restore.GetValue():
                     restore.purge_lca()
