@@ -1,9 +1,10 @@
 import math
-from typing import Tuple, List, Dict, NamedTuple, Set, Optional, Union, Iterable, Callable
+from typing import Tuple, List, Dict, NamedTuple, Set, Optional, Callable
 
 import pcbnew
 
-from .board_utils import BoardUtils, GroupWrapper, GroupLike, group_like_items, group_like_recursive_footprints, iterable_to_py
+from .board_utils import BoardUtils, GroupWrapper, GroupLike, group_like_items, group_like_recursive_footprints, \
+  PcbGroupType
 
 
 class FootprintCorrespondence(NamedTuple):
@@ -169,7 +170,7 @@ class PositionTransform():
 
 class ReplicateResult(NamedTuple):
     """Result of replicate, including nonfatal errors"""
-    target_group: pcbnew.PCB_GROUP
+    target_group: PcbGroupType
 
     target_footprints_missing_source: List[pcbnew.FOOTPRINT]
     source_footprints_unused: List[pcbnew.FOOTPRINT]
@@ -221,13 +222,13 @@ class ReplicateSublayout():
         target_footprints = [target_footprint for src_footprint, target_footprint
                              in self._correspondences.mapped_footprints] \
                             + self._correspondences.target_only_footprints
-        target_groups = [GroupWrapper(target_footprint.GetParentGroup()) for target_footprint in target_footprints]
+        target_groups = [GroupWrapper(target_board, target_footprint.GetParentGroup()) for target_footprint in target_footprints]
         target_groups_lca = GroupWrapper.lowest_common_ancestor(target_groups)
 
         if target_groups_lca is not None and all(
             [BoardUtils.footprint_path_startswith(item, self._target_path_prefix)
              for item in target_groups_lca.recursive_items() if isinstance(item, pcbnew.FOOTPRINT)]):
-            self._target_group: Optional[pcbnew.PCB_GROUP] = target_groups_lca._group
+            self._target_group: Optional[PcbGroupType] = target_groups_lca._group
         else:
             self._target_group = None
 
@@ -241,16 +242,16 @@ class ReplicateSublayout():
                     pads.append((footprint, pad))
         return pads
 
-    def target_lca(self) -> Optional[pcbnew.PCB_GROUP]:
+    def target_lca(self) -> Optional[PcbGroupType]:
         """Returns the lowest common ancestor of the target footprints, or None if there is none"""
         return self._target_group
 
     def purge_lca(self) -> None:
         """Deletes replicate-able items (excluding footprints) from the LCA"""
-        def recurse_group(group: pcbnew.PCB_GROUP) -> None:
+        def recurse_group(group: PcbGroupType) -> None:
             """Recursively deletes all items in the group."""
-            for item in iterable_to_py(group.GetItems()):
-                if isinstance(item, pcbnew.PCB_GROUP):
+            for item in GroupWrapper(self._target_board, group).items():
+                if isinstance(item, PcbGroupType):
                     recurse_group(item)
                 if isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):
                     self._target_board.Delete(item)
@@ -261,7 +262,7 @@ class ReplicateSublayout():
         if self._target_group is not None:
             target_group = self._target_group
         else:  # otherwise, create new group in root
-            target_group = pcbnew.PCB_GROUP(self._target_board)
+            target_group = PcbGroupType(self._target_board)
             self._target_board.Add(target_group)
 
         result = ReplicateResult(target_group, [], [], [], [])
@@ -273,10 +274,10 @@ class ReplicateSublayout():
             for src_footprint, target_footprint in self._correspondences.mapped_footprints
         }
         def recurse_group(source_group: GroupLike,
-                          target_group: pcbnew.PCB_GROUP) -> None:
+                          target_group: PcbGroupType) -> None:
             for item in group_like_items(source_group):
-                if isinstance(item, pcbnew.PCB_GROUP):
-                    new_group = pcbnew.PCB_GROUP(self._target_board)
+                if isinstance(item, PcbGroupType):
+                    new_group = PcbGroupType(self._target_board)
                     self._target_board.Add(new_group)
                     target_group.AddItem(new_group)
                     recurse_group(item, new_group)

@@ -41,7 +41,7 @@ class SaveTestCase(unittest.TestCase):
         result = selector.get_elts()
         self.assertEqual(len(result.ungrouped_elts), 0)  # no loose elts
         self.assertEqual(len(result.groups), 1)  # main group only
-        self.assertEqual(GroupWrapper(result.groups[0]).sorted_footprint_refs(), ('J1', ))  # direct contents only
+        self.assertEqual(GroupWrapper(src_board, result.groups[0]).sorted_footprint_refs(), ('J1', ))  # direct contents only
         board = selector.create_sublayout("test.kicad_pcb")
         board.Save('test_output_usb_grouped.kicad_pcb')
 

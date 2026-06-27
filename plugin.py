@@ -4,12 +4,13 @@ import re
 from typing import List, Callable, Tuple, Optional, cast
 
 import pcbnew
-import wx
+import wx  # type: ignore
 
+from sublayout.board_utils import GroupWrapper
 from .sublayout.replicate_sublayout import ReplicateSublayout, FootprintCorrespondence
 from .sublayout.hierarchy_namer import HierarchyData
 from .sublayout.save_sublayout import HierarchySelector
-from .sublayout.board_utils import BoardUtils, GroupLike
+from .sublayout.board_utils import BoardUtils, GroupLike, PcbGroupType
 
 
 class HighlightManager():
@@ -34,8 +35,8 @@ class HighlightManager():
         for item in items:
             if isinstance(item, pcbnew.FOOTPRINT):
                 self._highlight_footprint(item, True)
-            elif isinstance(item, pcbnew.PCB_GROUP):
-                self.highlight(item.GetItems())
+            elif isinstance(item, PcbGroupType):
+                self.highlight(GroupWrapper(self._board, item).items())
             else:
                 item.SetBrightened()
         self._highlighted_items.extend(items)
@@ -185,7 +186,7 @@ class SubLayoutFrame(wx.Frame):
                 if instance_anchor is None:
                     continue
                 instance_path_anchors.append((instance_path, instance_anchor))
-            
+
             def refdes_sort_key(refdes: str) -> Tuple[str, int]:
                 # split refdes into alpha prefix + numeric tail for natural sorting
                 match = re.match(r"^(.*?)(\d*)$", refdes)
