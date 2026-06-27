@@ -2,12 +2,12 @@ from typing import Tuple, List, Dict, Set, NamedTuple, Union, Optional, Type
 
 import pcbnew
 
-from .board_utils import BoardUtils, GroupWrapper, iterable_to_py
+from .board_utils import BoardUtils, GroupWrapper, PcbGroupType, IsKicad10
 
 
 class FilterResult(NamedTuple):
     ungrouped_elts: List[Union[pcbnew.FOOTPRINT, pcbnew.PCB_TRACK, pcbnew.ZONE]]
-    groups: List[pcbnew.PCB_GROUP]  # groups that are wholly part of the hierarchy
+    groups: List[PcbGroupType]  # groups that are wholly part of the hierarchy
 
     footprints: List[pcbnew.FOOTPRINT]  # all footprints in the target
     netcodes: List[int]  # all netcodes in the target group but not elsewhere
@@ -34,19 +34,22 @@ class HierarchySelector():
                 cloned = elt.Duplicate(True)  # required addToParentGroup in newer KiCad versions
             board.Add(cloned)
 
-        def clone_group(group: pcbnew.PCB_GROUP, target_group: Optional[pcbnew.PCB_GROUP]) -> None:
+        def clone_group(group: PcbGroupType, target_group: Optional[PcbGroupType]) -> None:
             """Recursively clones a group and its contents.
             If specified, target group is a group in the target to group the items,
             otherwise items added to board top"""
-            for item in iterable_to_py(group.GetItems()):
-                if isinstance(item, pcbnew.PCB_GROUP):
+            for item in GroupWrapper(self._board, group).items():
+                if isinstance(item, PcbGroupType):
                     new_group = pcbnew.PCB_GROUP(board)
                     board.Add(new_group)
                     if target_group is not None:
                         target_group.AddItem(new_group)
                     clone_group(item, new_group)
                 else:
-                    cloned_item = item.Duplicate()
+                    if IsKicad10 and isinstance(item, pcbnew.FOOTPRINT):
+                        cloned_item = item.Duplicate(False)
+                    else:
+                        cloned_item = item.Duplicate()
                     board.Add(cloned_item)
                     if target_group is not None:
                         target_group.AddItem(cloned_item)
@@ -54,9 +57,9 @@ class HierarchySelector():
         # clone groups
         for group in result.groups:
             if len(result.groups) == 1 and not result.ungrouped_elts:  # group is top-level
-                target_group: Optional[pcbnew.PCB_GROUP] = None
+                target_group: Optional[PcbGroupType] = None
             else:
-                target_group = pcbnew.PCB_GROUP(board)
+                target_group = PcbGroupType(board)
                 board.Add(target_group)
             clone_group(group, target_group)
 
@@ -69,10 +72,10 @@ class HierarchySelector():
         for elt in result.ungrouped_elts:  # delete loose items
             self._board.Delete(elt)
 
-        def delete_group(group: pcbnew.PCB_GROUP) -> None:
+        def delete_group(group: PcbGroupType) -> None:
             """Recursively deletes a group and its contents."""
-            for item in iterable_to_py(group.GetItems()):
-                if isinstance(item, pcbnew.PCB_GROUP):
+            for item in GroupWrapper(self._board, group).items():
+                if isinstance(item, PcbGroupType):
                     delete_group(item)
                 if not isinstance(item, exclude_types):
                     self._board.Delete(item)
@@ -98,7 +101,7 @@ class HierarchySelector():
 
         footprints = self._board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
         for footprint in footprints:
-            footprint_group = GroupWrapper(footprint.GetParentGroup())
+            footprint_group = GroupWrapper(self._board, footprint.GetParentGroup())
             if not BoardUtils.footprint_path_startswith(footprint, self.path_prefix):
                 exclude_groups.add(footprint_group)
                 for pad in footprint.Pads():  # type: pcbnew.PAD
@@ -112,22 +115,22 @@ class HierarchySelector():
         include_netcodes = include_netcodes.difference(exclude_netcodes)
         for track in self._board.GetTracks():  # type: pcbnew.PCB_TRACK
             if track.GetNetCode() in include_netcodes:
-                track_group = GroupWrapper(track.GetParentGroup())
+                track_group = GroupWrapper(self._board, track.GetParentGroup())
                 elts_by_group.setdefault(track_group, []).append(track)
         for zone_id in range(self._board.GetAreaCount()):
             zone = self._board.GetArea(zone_id)  # type: pcbnew.ZONE
             if zone.GetNetCode() in include_netcodes:
-                track_group = GroupWrapper(zone.GetParentGroup())
+                track_group = GroupWrapper(self._board, zone.GetParentGroup())
                 elts_by_group.setdefault(track_group, []).append(zone)
 
         # for exclude_groups in elts_by_group, move them to the None group
         for group in list(elts_by_group.keys()):  # copy keys to avoid modify-on-iteration
-            if group in exclude_groups and group != GroupWrapper(None):
-                elts_by_group.setdefault(GroupWrapper(None), []).extend(elts_by_group[group])
+            if group in exclude_groups and group != GroupWrapper.empty():
+                elts_by_group.setdefault(GroupWrapper.empty(), []).extend(elts_by_group[group])
                 # TODO warn on overlap include/exclude groups
                 del elts_by_group[group]
 
-        ungrouped_elts = elts_by_group.pop(GroupWrapper(None), [])
+        ungrouped_elts = elts_by_group.pop(GroupWrapper.empty(), [])
 
         # prune groups with highest covering group
         covering_groups = GroupWrapper.highest_covering_groups(list(elts_by_group.keys()))

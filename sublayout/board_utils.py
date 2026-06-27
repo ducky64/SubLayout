@@ -5,19 +5,15 @@ import pcbnew
 if TYPE_CHECKING:
     from .save_sublayout import FilterResult
 
+try:
+    from pcbnew import EDA_GROUP
+    PcbGroupType = EDA_GROUP
+    IsKicad10 = True
 
-def iterable_to_py(iterable: Any) -> List[Any]:
-    """Newer KiCad versions do not properly wrap some iterator types, this works around it."""
-    try:
-        return iter(iterable)
-    except TypeError:
-        output = []
-        while True:
-            item = iterable.next()
-            if item is None:
-              break
-            output.append(item)
-        return output
+except ImportError:
+    PcbGroupType = pcbnew.PCB_GROUP
+    IsKicad10 = False
+
         
 def group_parent(group: Any) -> Any:  # pcbnew.EDA_GROUP in newer KiCad versions
     """Newer KiCad versions change the parent group API"""
@@ -55,7 +51,7 @@ class GroupWrapper():
             group_path = []
             while group._group is not None:
                 group_path.append(group)
-                group = GroupWrapper(group_parent(group._group))
+                group = GroupWrapper(group._board, group_parent(group._group))
             group_paths.append(list(reversed(group_path)))
         # return the deepest group that is common to all paths
         i = 0  # base case
@@ -79,7 +75,7 @@ class GroupWrapper():
                 continue
             test_group = group
             while test_group._group is not None:
-                test_group = GroupWrapper(group_parent(test_group._group))
+                test_group = GroupWrapper(test_group._board, group_parent(test_group._group))
                 if test_group in groups:  # is child of a higher element in the group
                     break
             if test_group._group is None:  # made it to root
@@ -91,15 +87,15 @@ class GroupWrapper():
         """Creates a hashable key for some types of BOARD_ITEMs"""
         if isinstance(elt, pcbnew.FOOTPRINT):
             x, y = elt.GetPosition()
-            return (elt.GetReference(), x, y, elt.GetOrientationDegrees())
+            return (elt.GetReference(), x, y)
         elif isinstance(elt, pcbnew.PCB_TRACK):
             sx, sy = elt.GetStart()
             ex, ey = elt.GetEnd()
-            return (sx, sy, ex, ey, elt.GetWidth())
+            return (sx, sy, ex, ey)
         elif isinstance(elt, pcbnew.ZONE):
             return tuple((elt.GetCornerPosition(i)[0], elt.GetCornerPosition(i)[1]) for i in range(elt.GetNumCorners()))
-        elif isinstance(elt, pcbnew.PCB_GROUP):
-            return GroupWrapper(elt)
+        elif isinstance(elt, PcbGroupType):
+            return GroupWrapper(elt.GetBoard(), elt)
         else:
             return None
 
@@ -111,20 +107,37 @@ class GroupWrapper():
             return NotImplemented
         return (self._group is None) == (other._group is None) and self._key == other._key
 
-    def __init__(self, group: Optional[pcbnew.PCB_GROUP]) -> None:
+    @staticmethod
+    def empty() -> "GroupWrapper":
+      return GroupWrapper(None, None)
+
+    def __init__(self, board: Optional[pcbnew.BOARD], group: Optional[PcbGroupType]) -> None:
+        assert isinstance(board, pcbnew.BOARD) or board is None
+        assert isinstance(group, PcbGroupType) or group is None
+        self._board = board
         self._group = group
         if self._group is not None:
-            self._key: Optional[frozenset[Any]] = frozenset([self._elt_to_key(item) for item in iterable_to_py(self._group.GetItems())])
+            self._key: Optional[frozenset[Any]] = frozenset([self._elt_to_key(item) for item in self.items()])
         else:
             self._key = None
+
+    def items(self) -> Iterable[pcbnew.BOARD_ITEM]:
+        """Yields all items in the group (non-recursive)"""
+        if self._group is None:
+            return []
+        if IsKicad10:
+            member_ids = self._group.GetGroupMemberIds()
+            return [self._board.ResolveItem(member_id).Cast() for member_id in member_ids]
+        else:
+            return self._group.GetItems()
 
     def recursive_items(self):
         """Recursively yields all items in the group and its subgroups"""
         if self._group is None:
             return
-        for item in iterable_to_py(self._group.GetItems()):
-            if isinstance(item, pcbnew.PCB_GROUP):
-                yield from GroupWrapper(item).recursive_items()
+        for item in self.items():
+            if isinstance(item, PcbGroupType):
+                yield from GroupWrapper(self._board, item).recursive_items()
             else:
                 yield item
 
@@ -132,7 +145,7 @@ class GroupWrapper():
         """Returns the sorted footprint references in the group"""
         if self._group is None:
             return ()
-        footprints = [elt for elt in iterable_to_py(self._group.GetItems()) if isinstance(elt, pcbnew.FOOTPRINT)]
+        footprints = [elt for elt in self.items() if isinstance(elt, pcbnew.FOOTPRINT)]
         return tuple(sorted([fp.GetReference() for fp in footprints]))
 
     def __repr__(self) -> str:
@@ -140,24 +153,24 @@ class GroupWrapper():
             return f"GroupWrapper(None)"
 
         sorted_refs = self.sorted_footprint_refs()
-        item_count = len(iterable_to_py(self._group.GetItems()))
+        item_count = len(self.items())
         if self._group.GetName():
             return f"GroupWrapper({self._group.GetName()}: {item_count}; {', '.join(sorted_refs)})"
         else:
-            return f"GroupWrapper({item_count}; {', '.join(sorted_refs)})"
+            return f"GroupWrapper({item_count} items: {', '.join(sorted_refs)})"
 
 
-GroupLike = Union[pcbnew.PCB_GROUP, pcbnew.BOARD, 'FilterResult']
+GroupLike = Union[PcbGroupType, pcbnew.BOARD, 'FilterResult']
 
-def group_like_items(grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
+def group_like_items(board: pcbnew.BOARD, grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
     """Given a grouplike, returns the items in the group.
     Straightforward for groups, does some computation for boards and hierarchy selection results"""
     from .save_sublayout import FilterResult
 
-    if isinstance(grouplike, pcbnew.PCB_GROUP):
-        return iterable_to_py(grouplike.GetItems())
+    if isinstance(grouplike, PcbGroupType):
+        return GroupWrapper(board, grouplike).items()
     elif isinstance(grouplike, pcbnew.BOARD):
-        groups = [group for group in grouplike.Groups()]  # type: List[pcbnew.PCB_GROUP]
+        groups = [group for group in grouplike.Groups()]  # type: List[PcbGroupType]
         footprints = [item for item in grouplike.GetFootprints()]  # type: List[pcbnew.FOOTPRINT]
         tracks = [item for item in grouplike.GetTracks()]  # type: List[pcbnew.PCB_TRACK]
         zones = [grouplike.GetArea(i) for i in range(grouplike.GetAreaCount())]  # type: List[pcbnew.ZONE]
@@ -165,16 +178,16 @@ def group_like_items(grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
                 if item.GetParentGroup() is None]
     elif isinstance(grouplike, FilterResult):
         if len(grouplike.groups) == 1 and len(grouplike.ungrouped_elts) == 0:
-            return group_like_items(grouplike.groups[0])  # single group, flatten out
+            return group_like_items(board, grouplike.groups[0])  # single group, flatten out
         else:
             return grouplike.groups + grouplike.ungrouped_elts  # return groups and elts
     else:
         raise TypeError(f"unknown grouplike type {grouplike}")
 
-def group_like_recursive_footprints(grouplike: GroupLike) -> Iterable[pcbnew.FOOTPRINT]:
+def group_like_recursive_footprints(board: pcbnew.BOARD, grouplike: GroupLike) -> Iterable[pcbnew.FOOTPRINT]:
     """Given a grouplike, returns the footprints in the group, recursively."""
-    for item in group_like_items(grouplike):
+    for item in group_like_items(board, grouplike):
         if isinstance(item, pcbnew.FOOTPRINT):
             yield item
-        elif isinstance(item, pcbnew.PCB_GROUP):
-            yield from group_like_recursive_footprints(item)
+        elif isinstance(item, PcbGroupType):
+            yield from group_like_recursive_footprints(board, item)

@@ -1,9 +1,10 @@
 import math
-from typing import Tuple, List, Dict, NamedTuple, Set, Optional, Union, Iterable, Callable
+from typing import Tuple, List, Dict, NamedTuple, Set, Optional, Callable
 
 import pcbnew
 
-from .board_utils import BoardUtils, GroupWrapper, GroupLike, group_like_items, group_like_recursive_footprints, iterable_to_py
+from .board_utils import BoardUtils, GroupWrapper, GroupLike, group_like_items, group_like_recursive_footprints, \
+  PcbGroupType
 
 
 class FootprintCorrespondence(NamedTuple):
@@ -22,9 +23,13 @@ class FootprintCorrespondence(NamedTuple):
         return None
 
     @staticmethod
-    def by_tstamp(src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...])\
+    def by_tstamp(src_board: pcbnew.BOARD, src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...])\
             -> 'FootprintCorrespondence':
         """Calculates a footprint correspondence using relative-path tstamps."""
+        assert src_board is not None
+        assert src is not None
+        assert target_board is not None
+
         mapped_footprints: List[Tuple[pcbnew.FOOTPRINT, pcbnew.FOOTPRINT]] = []
         source_only_footprints: List[pcbnew.FOOTPRINT] = []
 
@@ -41,7 +46,7 @@ class FootprintCorrespondence(NamedTuple):
 
         # iterate through all source footprints and match by postfix, storing the prefix
         source_prefixes: Set[Tuple[str, ...]] = set()
-        source_footprints = group_like_recursive_footprints(src)
+        source_footprints = group_like_recursive_footprints(src_board, src)
         for footprint in source_footprints:
             footprint_path = BoardUtils.footprint_path(footprint)
             matched = False
@@ -77,12 +82,16 @@ class FootprintCorrespondence(NamedTuple):
         return "", int(refdes)
 
     @classmethod
-    def by_refdes(cls, src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...]) \
+    def by_refdes(cls, src_board: pcbnew.BOARD, src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...]) \
         -> 'FootprintCorrespondence':
         """Calculates a footprint correspondence using relative offset refdes, eg src R1, R3, R4 matches
         target R6, R7, R8, assuming those were the only R* parts in both src and target.
         This is a heuristic for when the src and target tstamps have divered, either over time or because
         tstamps were never generated (eg, with standalone layout generators)."""
+
+        assert src_board is not None
+        assert src is not None
+        assert target_board is not None
 
         target_footprints_by_refdes: Dict[str, List[Tuple[int, pcbnew.FOOTPRINT]]] = {}  # R -> [(1, R1), (3, R3), ...]
         target_footprints = target_board.GetFootprints()  # type: List[pcbnew.FOOTPRINT]
@@ -93,7 +102,7 @@ class FootprintCorrespondence(NamedTuple):
             target_footprints_by_refdes.setdefault(refdes_type, []).append((refdes_num, footprint))
 
         source_footprints_by_refdes: Dict[str, List[Tuple[int, pcbnew.FOOTPRINT]]] = {}
-        source_footprints = group_like_recursive_footprints(src)
+        source_footprints = group_like_recursive_footprints(src_board, src)
         for footprint in source_footprints:
             refdes_type, refdes_num = cls._split_refdes(footprint.GetReferenceAsString())
             source_footprints_by_refdes.setdefault(refdes_type, []).append((refdes_num, footprint))
@@ -169,7 +178,7 @@ class PositionTransform():
 
 class ReplicateResult(NamedTuple):
     """Result of replicate, including nonfatal errors"""
-    target_group: pcbnew.PCB_GROUP
+    target_group: PcbGroupType
 
     target_footprints_missing_source: List[pcbnew.FOOTPRINT]
     source_footprints_unused: List[pcbnew.FOOTPRINT]
@@ -199,16 +208,19 @@ class ReplicateSublayout():
     """A class that represents a correspondence between a source board and a target board with anchor footprint
     and replication hierarchy level. The source anchor footprint is determined automatically.
     Computes correspondences on __init__, but replication is done explicitly."""
-    def __init__(self, src_board: GroupLike,
+    def __init__(self,
+                 src_board: pcbnew.BOARD,
+                 src: GroupLike,
                  target_board: pcbnew.BOARD, target_anchor: pcbnew.FOOTPRINT,
                  target_path_prefix: Tuple[str, ...],
-                 correspondence_fn: Callable[[GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]) -> None:
-        self._src = src_board
+                 correspondence_fn: Callable[[pcbnew.BOARD, GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]) -> None:
+        self._src_board = src_board
+        self._src = src
         self._target_board = target_board
         self._target_anchor = target_anchor
         self._target_path_prefix = target_path_prefix
 
-        self._correspondences = correspondence_fn(self._src, self._target_board, self._target_path_prefix)
+        self._correspondences = correspondence_fn(self._src_board, self._src, self._target_board, self._target_path_prefix)
         correspondences_by_tstamp = {  # TODO use FootprintCorrespondence methods to map
             BoardUtils.footprint_path(target_footprint): src_footprint
             for src_footprint, target_footprint in self._correspondences.mapped_footprints
@@ -221,13 +233,13 @@ class ReplicateSublayout():
         target_footprints = [target_footprint for src_footprint, target_footprint
                              in self._correspondences.mapped_footprints] \
                             + self._correspondences.target_only_footprints
-        target_groups = [GroupWrapper(target_footprint.GetParentGroup()) for target_footprint in target_footprints]
+        target_groups = [GroupWrapper(target_board, target_footprint.GetParentGroup()) for target_footprint in target_footprints]
         target_groups_lca = GroupWrapper.lowest_common_ancestor(target_groups)
 
         if target_groups_lca is not None and all(
             [BoardUtils.footprint_path_startswith(item, self._target_path_prefix)
              for item in target_groups_lca.recursive_items() if isinstance(item, pcbnew.FOOTPRINT)]):
-            self._target_group: Optional[pcbnew.PCB_GROUP] = target_groups_lca._group
+            self._target_group: Optional[PcbGroupType] = target_groups_lca._group
         else:
             self._target_group = None
 
@@ -241,16 +253,16 @@ class ReplicateSublayout():
                     pads.append((footprint, pad))
         return pads
 
-    def target_lca(self) -> Optional[pcbnew.PCB_GROUP]:
+    def target_lca(self) -> Optional[PcbGroupType]:
         """Returns the lowest common ancestor of the target footprints, or None if there is none"""
         return self._target_group
 
     def purge_lca(self) -> None:
         """Deletes replicate-able items (excluding footprints) from the LCA"""
-        def recurse_group(group: pcbnew.PCB_GROUP) -> None:
+        def recurse_group(group: PcbGroupType) -> None:
             """Recursively deletes all items in the group."""
-            for item in iterable_to_py(group.GetItems()):
-                if isinstance(item, pcbnew.PCB_GROUP):
+            for item in GroupWrapper(self._target_board, group).items():
+                if isinstance(item, PcbGroupType):
                     recurse_group(item)
                 if isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):
                     self._target_board.Delete(item)
@@ -273,9 +285,9 @@ class ReplicateSublayout():
             for src_footprint, target_footprint in self._correspondences.mapped_footprints
         }
         def recurse_group(source_group: GroupLike,
-                          target_group: pcbnew.PCB_GROUP) -> None:
-            for item in group_like_items(source_group):
-                if isinstance(item, pcbnew.PCB_GROUP):
+                          target_group: PcbGroupType) -> None:
+            for item in group_like_items(self._src_board, source_group):
+                if isinstance(item, PcbGroupType):
                     new_group = pcbnew.PCB_GROUP(self._target_board)
                     self._target_board.Add(new_group)
                     target_group.AddItem(new_group)
