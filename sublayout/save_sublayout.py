@@ -41,7 +41,7 @@ class HierarchySelector():
             otherwise items added to board top"""
             for item in GroupWrapper(self._board, group).items():
                 if isinstance(item, PcbGroupType):
-                    new_group = PcbGroupType(board)
+                    new_group = pcbnew.PCB_GROUP(board)
                     board.Add(new_group)
                     if target_group is not None:
                         target_group.AddItem(new_group)

@@ -99,11 +99,11 @@ class GroupWrapper():
         """Creates a hashable key for some types of BOARD_ITEMs"""
         if isinstance(elt, pcbnew.FOOTPRINT):
             x, y = elt.GetPosition()
-            return (elt.GetReference(), x, y, elt.GetOrientationDegrees())
+            return (elt.GetReference(), x, y)
         elif isinstance(elt, pcbnew.PCB_TRACK):
             sx, sy = elt.GetStart()
             ex, ey = elt.GetEnd()
-            return (sx, sy, ex, ey, elt.GetWidth())
+            return (sx, sy, ex, ey)
         elif isinstance(elt, pcbnew.ZONE):
             return tuple((elt.GetCornerPosition(i)[0], elt.GetCornerPosition(i)[1]) for i in range(elt.GetNumCorners()))
         elif isinstance(elt, PcbGroupType):
@@ -136,7 +136,7 @@ class GroupWrapper():
         if self._group is None:
             return []
         member_ids = self._group.GetGroupMemberIds()
-        return [self._board.ResolveItem(member_id) for member_id in member_ids]
+        return [self._board.ResolveItem(member_id).Cast() for member_id in member_ids]
         # return self._group.GetItems()
 
     def recursive_items(self):
