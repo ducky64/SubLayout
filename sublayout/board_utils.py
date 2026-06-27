@@ -1,7 +1,6 @@
 from typing import Tuple, cast, Optional, List, Hashable, Any, Iterable, Union, TYPE_CHECKING
 
 import pcbnew
-import wx
 
 if TYPE_CHECKING:
     from .save_sublayout import FilterResult
@@ -172,13 +171,13 @@ class GroupWrapper():
 
 GroupLike = Union[PcbGroupType, pcbnew.BOARD, 'FilterResult']
 
-def group_like_items(grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
+def group_like_items(board: pcbnew.BOARD, grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
     """Given a grouplike, returns the items in the group.
     Straightforward for groups, does some computation for boards and hierarchy selection results"""
     from .save_sublayout import FilterResult
 
     if isinstance(grouplike, PcbGroupType):
-        return iterable_to_py(grouplike.GetItems())
+        return GroupWrapper(board, grouplike).items()
     elif isinstance(grouplike, pcbnew.BOARD):
         groups = [group for group in grouplike.Groups()]  # type: List[PcbGroupType]
         footprints = [item for item in grouplike.GetFootprints()]  # type: List[pcbnew.FOOTPRINT]
@@ -188,16 +187,16 @@ def group_like_items(grouplike: GroupLike) -> Iterable[pcbnew.BOARD_ITEM]:
                 if item.GetParentGroup() is None]
     elif isinstance(grouplike, FilterResult):
         if len(grouplike.groups) == 1 and len(grouplike.ungrouped_elts) == 0:
-            return group_like_items(grouplike.groups[0])  # single group, flatten out
+            return group_like_items(board, grouplike.groups[0])  # single group, flatten out
         else:
             return grouplike.groups + grouplike.ungrouped_elts  # return groups and elts
     else:
         raise TypeError(f"unknown grouplike type {grouplike}")
 
-def group_like_recursive_footprints(grouplike: GroupLike) -> Iterable[pcbnew.FOOTPRINT]:
+def group_like_recursive_footprints(board: pcbnew.BOARD, grouplike: GroupLike) -> Iterable[pcbnew.FOOTPRINT]:
     """Given a grouplike, returns the footprints in the group, recursively."""
-    for item in group_like_items(grouplike):
+    for item in group_like_items(board, grouplike):
         if isinstance(item, pcbnew.FOOTPRINT):
             yield item
         elif isinstance(item, PcbGroupType):
-            yield from group_like_recursive_footprints(item)
+            yield from group_like_recursive_footprints(board, item)

@@ -153,7 +153,7 @@ class SubLayoutFrame(wx.Frame):
             self._hierarchy_list.SetSelection(0)
             self._on_select_hierarchy(wx.CommandEvent(id=0))
 
-    def _get_correspondence_fn(self) -> Callable[[GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]:
+    def _get_correspondence_fn(self) -> Callable[[pcbnew.BOARD, GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]:
         if self._match_by_refdes.GetValue():
             return FootprintCorrespondence.by_refdes
         elif self._match_by_tstamp.GetValue():

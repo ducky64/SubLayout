@@ -1,7 +1,6 @@
 from typing import Tuple, List, Dict, Set, NamedTuple, Union, Optional, Type
 
 import pcbnew
-import wx
 
 from .board_utils import BoardUtils, GroupWrapper, PcbGroupType, IsKicad10
 

@@ -23,7 +23,7 @@ class FootprintCorrespondence(NamedTuple):
         return None
 
     @staticmethod
-    def by_tstamp(src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...])\
+    def by_tstamp(src_board: pcbnew.BOARD, src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...])\
             -> 'FootprintCorrespondence':
         """Calculates a footprint correspondence using relative-path tstamps."""
         mapped_footprints: List[Tuple[pcbnew.FOOTPRINT, pcbnew.FOOTPRINT]] = []
@@ -42,7 +42,7 @@ class FootprintCorrespondence(NamedTuple):
 
         # iterate through all source footprints and match by postfix, storing the prefix
         source_prefixes: Set[Tuple[str, ...]] = set()
-        source_footprints = group_like_recursive_footprints(src)
+        source_footprints = group_like_recursive_footprints(src_board, src)
         for footprint in source_footprints:
             footprint_path = BoardUtils.footprint_path(footprint)
             matched = False
@@ -78,7 +78,7 @@ class FootprintCorrespondence(NamedTuple):
         return "", int(refdes)
 
     @classmethod
-    def by_refdes(cls, src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...]) \
+    def by_refdes(cls, src_board: pcbnew.BOARD, src: GroupLike, target_board: pcbnew.BOARD, target_path_prefix: Tuple[str, ...]) \
         -> 'FootprintCorrespondence':
         """Calculates a footprint correspondence using relative offset refdes, eg src R1, R3, R4 matches
         target R6, R7, R8, assuming those were the only R* parts in both src and target.
@@ -94,7 +94,7 @@ class FootprintCorrespondence(NamedTuple):
             target_footprints_by_refdes.setdefault(refdes_type, []).append((refdes_num, footprint))
 
         source_footprints_by_refdes: Dict[str, List[Tuple[int, pcbnew.FOOTPRINT]]] = {}
-        source_footprints = group_like_recursive_footprints(src)
+        source_footprints = group_like_recursive_footprints(src_board, src)
         for footprint in source_footprints:
             refdes_type, refdes_num = cls._split_refdes(footprint.GetReferenceAsString())
             source_footprints_by_refdes.setdefault(refdes_type, []).append((refdes_num, footprint))
@@ -203,13 +203,13 @@ class ReplicateSublayout():
     def __init__(self, src_board: GroupLike,
                  target_board: pcbnew.BOARD, target_anchor: pcbnew.FOOTPRINT,
                  target_path_prefix: Tuple[str, ...],
-                 correspondence_fn: Callable[[GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]) -> None:
+                 correspondence_fn: Callable[[pcbnew.BOARD, GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]) -> None:
         self._src = src_board
         self._target_board = target_board
         self._target_anchor = target_anchor
         self._target_path_prefix = target_path_prefix
 
-        self._correspondences = correspondence_fn(self._src, self._target_board, self._target_path_prefix)
+        self._correspondences = correspondence_fn(self._src, self._src, self._target_board, self._target_path_prefix)
         correspondences_by_tstamp = {  # TODO use FootprintCorrespondence methods to map
             BoardUtils.footprint_path(target_footprint): src_footprint
             for src_footprint, target_footprint in self._correspondences.mapped_footprints
@@ -275,7 +275,7 @@ class ReplicateSublayout():
         }
         def recurse_group(source_group: GroupLike,
                           target_group: PcbGroupType) -> None:
-            for item in group_like_items(source_group):
+            for item in group_like_items(self._src, source_group):
                 if isinstance(item, PcbGroupType):
                     new_group = PcbGroupType(self._target_board)
                     self._target_board.Add(new_group)
