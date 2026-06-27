@@ -6,11 +6,10 @@ from typing import List, Callable, Tuple, Optional, cast
 import pcbnew
 import wx  # type: ignore
 
-from sublayout.board_utils import GroupWrapper
 from .sublayout.replicate_sublayout import ReplicateSublayout, FootprintCorrespondence
 from .sublayout.hierarchy_namer import HierarchyData
 from .sublayout.save_sublayout import HierarchySelector
-from .sublayout.board_utils import BoardUtils, GroupLike, PcbGroupType
+from .sublayout.board_utils import BoardUtils, GroupLike, PcbGroupType, GroupWrapper
 
 
 class HighlightManager():
@@ -43,11 +42,17 @@ class HighlightManager():
 
     def clear(self) -> None:
         """Clears the highlights on the board."""
-        for item in self._highlighted_items:
+        def clear_item(item: pcbnew.EDA_ITEM) -> None:
             if isinstance(item, pcbnew.FOOTPRINT):
                 self._highlight_footprint(item, False)
+            elif isinstance(item, PcbGroupType):
+                for subitem in GroupWrapper(self._board, item).items():
+                    clear_item(subitem)
             else:
                 item.ClearBrightened()
+
+        for item in self._highlighted_items:
+            clear_item(item)
         self._highlighted_items.clear()
 
 
@@ -181,7 +186,7 @@ class SubLayoutFrame(wx.Frame):
             instance_path_anchors = []
             for instance_path in self._namer.instances_of(sheetfile):
                 src_hierarchy = HierarchySelector(self._board, selected_path_comps).get_elts()
-                correspondence = self._get_correspondence_fn()(src_hierarchy, self._board, instance_path)
+                correspondence = self._get_correspondence_fn()(self._board, src_hierarchy, self._board, instance_path)
                 instance_anchor = correspondence.get_footprint(self._footprints[0])
                 if instance_anchor is None:
                     continue

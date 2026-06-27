@@ -126,6 +126,7 @@ class GroupWrapper():
 
     def __init__(self, board: Optional[pcbnew.BOARD], group: Optional[PcbGroupType]) -> None:
         self._board = board
+        assert isinstance(board, pcbnew.BOARD) or board is None
         self._group = group
         if self._group is not None:
             self._key: Optional[frozenset[Any]] = frozenset([self._elt_to_key(item) for item in self.items()])

@@ -200,16 +200,19 @@ class ReplicateSublayout():
     """A class that represents a correspondence between a source board and a target board with anchor footprint
     and replication hierarchy level. The source anchor footprint is determined automatically.
     Computes correspondences on __init__, but replication is done explicitly."""
-    def __init__(self, src_board: GroupLike,
+    def __init__(self,
+                 src_board: pcbnew.BOARD,
+                 src: GroupLike,
                  target_board: pcbnew.BOARD, target_anchor: pcbnew.FOOTPRINT,
                  target_path_prefix: Tuple[str, ...],
                  correspondence_fn: Callable[[pcbnew.BOARD, GroupLike, pcbnew.BOARD, Tuple[str, ...]], FootprintCorrespondence]) -> None:
-        self._src = src_board
+        self._src_board = src_board
+        self._src = src
         self._target_board = target_board
         self._target_anchor = target_anchor
         self._target_path_prefix = target_path_prefix
 
-        self._correspondences = correspondence_fn(self._src, self._src, self._target_board, self._target_path_prefix)
+        self._correspondences = correspondence_fn(self._src_board, self._src, self._target_board, self._target_path_prefix)
         correspondences_by_tstamp = {  # TODO use FootprintCorrespondence methods to map
             BoardUtils.footprint_path(target_footprint): src_footprint
             for src_footprint, target_footprint in self._correspondences.mapped_footprints
@@ -275,7 +278,7 @@ class ReplicateSublayout():
         }
         def recurse_group(source_group: GroupLike,
                           target_group: PcbGroupType) -> None:
-            for item in group_like_items(self._src, source_group):
+            for item in group_like_items(self._src_board, source_group):
                 if isinstance(item, PcbGroupType):
                     new_group = pcbnew.PCB_GROUP(self._target_board)
                     self._target_board.Add(new_group)

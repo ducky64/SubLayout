@@ -3,7 +3,7 @@ import unittest
 
 import pcbnew
 
-from .board_utils import GroupWrapper
+from .board_utils import GroupWrapper, IsKicad10
 
 
 class GroupUtilsTestCase(unittest.TestCase):
@@ -29,7 +29,10 @@ class GroupUtilsTestCase(unittest.TestCase):
         group_j1 = GroupWrapper(src_board, src_board.FindFootprintByReference('J1').GetParentGroup())
         group_r1 = GroupWrapper(src_board, src_board.FindFootprintByReference('R1').GetParentGroup())
         group_r2 = GroupWrapper(src_board, src_board.FindFootprintByReference('R2').GetParentGroup())
-        group_r1r2 = GroupWrapper(src_board, src_board.FindFootprintByReference('R2').GetParentGroup().GetParentGroup())
+        if IsKicad10:
+          group_r1r2 = GroupWrapper(src_board, src_board.FindFootprintByReference('R2').GetParentGroup().AsEdaItem().GetParentGroup())
+        else:
+          group_r1r2 = GroupWrapper(src_board, src_board.FindFootprintByReference('R2').GetParentGroup().GetParentGroup())
         self.assertEqual(group_j1.lowest_common_ancestor([group_j1, group_j1]), group_j1)
         self.assertEqual(group_j1.lowest_common_ancestor([group_r1, group_j1]), group_j1)
         self.assertEqual(group_j1.lowest_common_ancestor([group_r1, group_r1]), group_r1)
