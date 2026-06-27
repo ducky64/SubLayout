@@ -1,0 +1,32 @@
+{
+  "$schema": "https://go.kicad.org/pcm/schemas/v2",
+  "name": "SubLayout",
+  "description": "A plugin to replicate, load, and save layouts of hierarchical sheets.",
+  "description_full": "Supports layout re-use of hierarchical sheets, including schematic-less netlist flows that have hierarchical tstamp data. Can replicate sheets within the same board (channelization), or save and load sheets to .kicad_pcb files that can be edited separately. Grouping-aware. Auto-detects instances based on sheetnames. Allows replication based on tstamp or relative refdes, including a best-effort attempt when the source and destination don't match.",
+  "identifier": "com.github.ducky64.SubLayout",
+  "type": "plugin",
+  "author": {
+    "name": "Ducky Lin",
+    "contact": {
+      "web": "https://github.com/ducky64/SubLayout"
+    }
+  },
+  "maintainer": {
+    "name": "Ducky Lin",
+    "contact": {
+      "web": "https://github.com/ducky64/SubLayout"
+    }
+  },
+  "license": "BSD-3-clause",
+  "resources": {
+    "homepage": "Ducky Lin"
+  },
+  "versions": [
+    {
+      "version": "0.1",
+      "status": "development",
+      "kicad_version": "8.0",
+      "kicad_version_max": "10.0"
+    }
+  ]
+}

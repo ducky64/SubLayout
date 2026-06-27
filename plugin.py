@@ -1,6 +1,5 @@
 import os
 import traceback
-import re
 from typing import List, Callable, Tuple, Optional, cast, Iterable
 
 import pcbnew
