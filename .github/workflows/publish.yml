@@ -10,11 +10,15 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      # TODO: actions-kicad-addon tacks on a v in front of the version, so we have to undo that here
+      # this is a total hack
+      - name: Clean version tag
+        run: |
+            CLEAN_VERSION="${{ github.ref_name }}"
+            echo "CLEAN_VERSION=${CLEAN_VERSION#v}" >> $GITHUB_ENV
       - uses: cooked/actions-kicad-addon@v0.1.0
         with:
-          # TODO: actions-kicad-addon tacks on a v in front of the version, so we have to undo that here
-          # this is a total hack
-          version: ${{ replace(github.ref_name, 'v', '') }}
+          version: ${{ env.CLEAN_VERSION }}
           status: "development"
           deploy: false
           # TODO: deduplicate; the following is duplicated with the current metadata skeleton
