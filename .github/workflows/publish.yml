@@ -1,7 +1,12 @@
 name: Package and publish addon
 on:
-  release:
-    types: [published]
+# Ideally this would be triggered by a release on the GitHub UI,
+# but actions-kicad-addon insists on owning the release process
+#  release:
+#    types: [published]
+  push:
+    tags:
+      - '*'
 
 jobs:
   publish:
