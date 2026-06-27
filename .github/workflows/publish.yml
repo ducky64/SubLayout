@@ -12,7 +12,9 @@ jobs:
     steps:
       - uses: cooked/actions-kicad-addon@v0.1.0
         with:
-          version: ${{ github.ref_name }}
+          # TODO: actions-kicad-addon tacks on a v in front of the version, so we have to undo that here
+          # this is a total hack
+          version: ${{ replace(github.ref_name, 'v', '') }}
           status: "development"
           deploy: false
           # TODO: deduplicate; the following is duplicated with the current metadata skeleton
