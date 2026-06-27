@@ -46,7 +46,6 @@ class GroupUtilsTestCase(unittest.TestCase):
         group_j1 = GroupWrapper(src_board, src_board.FindFootprintByReference('J1').GetParentGroup())
         group_r1 = GroupWrapper(src_board, src_board.FindFootprintByReference('R1').GetParentGroup())
         group_r2 = GroupWrapper(src_board, src_board.FindFootprintByReference('R2').GetParentGroup())
-        group_r1r2 = GroupWrapper(src_board, src_board.FindFootprintByReference('R2').GetParentGroup().GetParentGroup())
         self.assertEqual(group_j1.highest_covering_groups([group_j1, group_j1]), [group_j1])  # check deduplication
         self.assertEqual(group_j1.highest_covering_groups([group_r1, group_j1]), [group_j1])
         self.assertEqual(group_j1.highest_covering_groups([group_r1, group_r1]), [group_r1])

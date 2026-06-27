@@ -262,7 +262,7 @@ class ReplicateSublayout():
         if self._target_group is not None:
             target_group = self._target_group
         else:  # otherwise, create new group in root
-            target_group = PcbGroupType(self._target_board)
+            target_group = pcbnew.PCB_GROUP(self._target_board)
             self._target_board.Add(target_group)
 
         result = ReplicateResult(target_group, [], [], [], [])
@@ -277,7 +277,7 @@ class ReplicateSublayout():
                           target_group: PcbGroupType) -> None:
             for item in group_like_items(self._src, source_group):
                 if isinstance(item, PcbGroupType):
-                    new_group = PcbGroupType(self._target_board)
+                    new_group = pcbnew.PCB_GROUP(self._target_board)
                     self._target_board.Add(new_group)
                     target_group.AddItem(new_group)
                     recurse_group(item, new_group)
