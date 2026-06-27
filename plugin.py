@@ -192,15 +192,7 @@ class SubLayoutFrame(wx.Frame):
                     continue
                 instance_path_anchors.append((instance_path, instance_anchor))
 
-            def refdes_sort_key(refdes: str) -> Tuple[str, int]:
-                # split refdes into alpha prefix + numeric tail for natural sorting
-                match = re.match(r"^(.*?)(\d*)$", refdes)
-                if match:
-                    prefix, tail = match.groups()
-                    tail = int(tail) if tail else 0
-                    return prefix, tail
-                return refdes, 0
-            instance_path_anchors = sorted(instance_path_anchors, key=lambda tup: refdes_sort_key(tup[1].GetReference()))
+            instance_path_anchors = sorted(instance_path_anchors, key=lambda tup: FootprintCorrespondence._split_refdes(tup[1].GetReference()))
             
             for index, (instance_path, instance_anchor) in enumerate(instance_path_anchors):
                 if instance_path == selected_path_comps:
