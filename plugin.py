@@ -342,7 +342,7 @@ class SubLayout(pcbnew.ActionPlugin):
         self.category = "Placement"
         self.description = "Merge (or create) a sub-pcb-layout into (or from) a top-level board."
         self.show_toolbar_button = True
-        # self.icon_file_name = os.path.join(os.path.dirname(__file__), 'simple_plugin.png') # Optional, defaults to ""
+        self.icon_file_name = os.path.join(os.path.dirname(__file__), 'icon_24.png')
 
     def Run(self):
         try:
