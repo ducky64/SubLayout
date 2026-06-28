@@ -18,10 +18,11 @@ jobs:
             mv sublayout plugins/
             mv __init__.py plugin.py icon_24.png plugins/
             python release_metadata.py metadata.json \
-                --url "${{github.server_url}}/${{github.repository}}/releases/download/${{github.event.release.tag_name}}/${{ github.event.repository.name }}-pcm.zip" \
                 --version "${{ github.event.release.tag_name }}"
             zip -r ${{ github.event.repository.name }}-pcm.zip plugins/ resources/ metadata.json
-            python release_metadata.py metadata.json --package ${{ github.event.repository.name }}-pcm.zip
+            python release_metadata.py metadata.json \
+                --url "${{github.server_url}}/${{github.repository}}/releases/download/${{github.event.release.tag_name}}/${{ github.event.repository.name }}-pcm.zip" \
+                --package ${{ github.event.repository.name }}-pcm.zip
       - name: Upload Assets to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
