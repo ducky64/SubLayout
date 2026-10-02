@@ -1,0 +1,25 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  kicad-8:
+    name: KiCad 8
+    runs-on: kicad/kicad:8.0
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test
+        run: python3 -m unittest
+  kicad-10:
+    name: KiCad 10
+    runs-on: kicad/kicad:10.0
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test
+        run: python3 -m unittest
