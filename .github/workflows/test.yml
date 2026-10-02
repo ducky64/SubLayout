@@ -18,19 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Test
-        run: |
-          chmod -R a+rX .
-          id
-          ls -la tests/
-          python3 -c "import os; print('Exists:', os.path.exists('tests/UsbSublayout.kicad_pcb'))"
-          python3 -m unittest
-#  kicad-10:
-#    name: KiCad 10
-#    runs-on: ubuntu-latest
-#    container:
-#      image: kicad/kicad:10.0
-#      options: --user root
-#    steps:
-#      - uses: actions/checkout@v6
-#      - name: Test
-#        run: python3 -m unittest
+        run: python3 -m unittest
+  kicad-10:
+    name: KiCad 10
+    runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:10.0
+      options: --user root
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test
+        run: python3 -m unittest
