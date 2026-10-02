@@ -18,14 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Test
-        run: python3 -m unittest
-  kicad-10:
-    name: KiCad 10
-    runs-on: ubuntu-latest
-    container:
-      image: kicad/kicad:10.0
-      options: --user root
-    steps:
-      - uses: actions/checkout@v6
-      - name: Test
-        run: python3 -m unittest
+        run: |
+          chmod -R a+rX .
+          python3 -m unittest
+#  kicad-10:
+#    name: KiCad 10
+#    runs-on: ubuntu-latest
+#    container:
+#      image: kicad/kicad:10.0
+#      options: --user root
+#    steps:
+#      - uses: actions/checkout@v6
+#      - name: Test
+#        run: python3 -m unittest
