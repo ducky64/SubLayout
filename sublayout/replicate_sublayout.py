@@ -4,7 +4,7 @@ from typing import Tuple, List, Dict, NamedTuple, Set, Optional, Callable
 import pcbnew
 
 from .board_utils import BoardUtils, GroupWrapper, GroupLike, group_like_items, group_like_recursive_footprints, \
-  PcbGroupType
+  PcbGroupType, IsKicad10
 
 
 class FootprintCorrespondence(NamedTuple):
@@ -308,8 +308,8 @@ class ReplicateSublayout():
                     else:
                         target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
                 elif isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):  # duplicate everything else
-                    if isinstance(item, pcbnew.ZONE):
-                        # ZONE.Duplicate() takes a addToParentGroup bool argument
+                    if IsKicad10 and isinstance(item, pcbnew.ZONE):
+                        # ZONE.Duplicate() takes a addToParentGroup bool argument, somewhere between 10.0.4 and 10.0.6
                         cloned_item = item.Duplicate(False)
                     else:
                         cloned_item = item.Duplicate()
