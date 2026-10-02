@@ -308,7 +308,13 @@ class ReplicateSublayout():
                     else:
                         target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
                 elif isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):  # duplicate everything else
-                    cloned_item = item.Duplicate()
+                    if isinstance(item, pcbnew.ZONE):
+                        # ZONE.Duplicate() takes a addToParentGroup bool argument
+                        cloned_item = item.Duplicate(False)
+                    else:
+                        cloned_item = item.Duplicate()
+                    # Downcast to avoid further errors
+                    cloned_item = cloned_item.Cast()
                     self._target_board.Add(cloned_item)
                     target_group.AddItem(cloned_item)
                     cloned_item.SetParentGroup(target_group)
@@ -343,8 +349,9 @@ class ReplicateSublayout():
                                 cloned_item.SetLayer(pcbnew.F_Cu)
                     if isinstance(cloned_item, pcbnew.ZONE):  # need to explicitly assign zone netcodes
                         cloned_item.UnFill()
+                        outline = cloned_item.Outline()  # type: pcbnew.SHAPE_POLY_SET
                         for i in range(item.GetNumCorners()):
-                            cloned_item.SetCornerPosition(i, self._transform.transform(item.GetCornerPosition(i)))
+                            outline.SetVertex(i, self._transform.transform(item.GetCornerPosition(i)))
 
                         # flip layers if needed
                         layers = item.GetLayerSet()  # type: pcbnew.LSET
