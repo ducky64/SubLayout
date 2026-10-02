@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: kicad/kicad:8.0
+      options: --user root  # required so checkout works
     steps:
       - uses: actions/checkout@v6
       - name: Test
@@ -23,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: kicad/kicad:10.0
+      options: --user root
     steps:
       - uses: actions/checkout@v6
       - name: Test
