@@ -46,7 +46,7 @@ class HierarchySelector():
                         target_group.AddItem(new_group)
                     clone_group(item, new_group)
                 else:
-                    if IsKicad10 and isinstance(item, pcbnew.FOOTPRINT):
+                    if IsKicad10 and isinstance(item, (pcbnew.FOOTPRINT, pcbnew.ZONE)):
                         cloned_item = item.Duplicate(False)
                     else:
                         cloned_item = item.Duplicate()
