@@ -20,6 +20,9 @@ jobs:
       - name: Test
         run: |
           chmod -R a+rX .
+          id
+          ls -la tests/
+          python3 -c "import os; print('Exists:', os.path.exists('tests/UsbSublayout.kicad_pcb'))"
           python3 -m unittest
 #  kicad-10:
 #    name: KiCad 10
