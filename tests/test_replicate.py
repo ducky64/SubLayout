@@ -215,10 +215,11 @@ class ReplicateTestCase(unittest.TestCase):
         sublayout = ReplicateSublayout(sublayout_board, sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1],
                                        FootprintCorrespondence.by_tstamp)
         result = sublayout.replicate()
-        self.assertEqual(len(result.target_footprints_missing_source), 2)
+        self.assertEqual(len(result.target_footprints_missing_source), 3)
         self.assertEqual(len(result.get_error_strs()), 1)
         self.assertIn('C3', result.get_error_strs()[0])
         self.assertIn('C6', result.get_error_strs()[0])
+        self.assertIn('J2', result.get_error_strs()[0])
 
     def test_replicate_net_error(self):
         board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))  # type: pcbnew.BOARD
