@@ -221,6 +221,15 @@ class ReplicateTestCase(unittest.TestCase):
         self.assertIn('C6', result.get_error_strs()[0])
         self.assertIn('J2', result.get_error_strs()[0])
 
+        sublayout_board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'McuSublayout_WithCrystal.kicad_pcb'))
+        anchor = board.FindFootprintByReference('U2')
+        sublayout = ReplicateSublayout(sublayout_board, sublayout_board, board, anchor, BoardUtils.footprint_path(anchor)[:-1],
+                                       FootprintCorrespondence.by_tstamp)
+        result = sublayout.replicate()
+        self.assertEqual(len(result.source_footprints_unused), 3)  # missing crystal and caps
+        self.assertEqual(len(result.target_footprints_missing_source), 1)  # missing SWD
+        self.assertEqual(len(result.get_error_strs()), 2)
+
     def test_replicate_net_error(self):
         board = pcbnew.LoadBoard(os.path.join(os.path.dirname(__file__), 'TestBlinkyComplete_GroupedUsb.kicad_pcb'))  # type: pcbnew.BOARD
 
