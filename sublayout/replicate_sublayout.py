@@ -269,6 +269,28 @@ class ReplicateSublayout():
         if self._target_group is not None:
             recurse_group(self._target_group)
 
+    def _replicate_field_placement(self, src_field, target_field) -> None:
+        """Copies placement and appearance of a footprint text field (reference / value)
+        from the source footprint to the corresponding target footprint field."""
+        # position and rotation go through the same transform as the footprint itself
+        target_field.SetTextPos(self._transform.transform(src_field.GetTextPos()))
+        target_angle_rad = self._transform.transform_orientation(src_field.GetTextAngle().AsRadians())
+        target_field.SetTextAngle(pcbnew.EDA_ANGLE(target_angle_rad * 180 / math.pi, pcbnew.DEGREES_T))
+
+        # appearance
+        target_field.SetTextSize(src_field.GetTextSize())
+        target_field.SetTextThickness(src_field.GetTextThickness())
+        target_field.SetVisible(src_field.IsVisible())
+        target_field.SetKeepUpright(src_field.IsKeepUpright())
+        target_field.SetHorizJustify(src_field.GetHorizJustify())
+        target_field.SetVertJustify(src_field.GetVertJustify())
+
+        # side handling when the target group is flipped relative to the source
+        flipped = self._transform.relative_flipped()
+        layer = src_field.GetLayer()
+        target_field.SetLayer(pcbnew.FlipLayer(layer) if flipped else layer)
+        target_field.SetMirrored(src_field.IsMirrored() != flipped)
+
     def replicate(self) -> ReplicateResult:
         if self._target_group is not None:
             target_group = self._target_group
@@ -307,6 +329,11 @@ class ReplicateSublayout():
                         target_footprint.SetLayerAndFlip(pcbnew.B_Cu)
                     else:
                         target_footprint.SetLayerAndFlip(pcbnew.F_Cu)
+
+                    # replicate reference / value text placement
+                    self._replicate_field_placement(item.Reference(), target_footprint.Reference())
+                    self._replicate_field_placement(item.Value(), target_footprint.Value())
+
                 elif isinstance(item, (pcbnew.PCB_TRACK, pcbnew.ZONE)):  # duplicate everything else
                     if IsKicad10 and isinstance(item, pcbnew.ZONE):
                         # ZONE.Duplicate() takes a addToParentGroup bool argument, somewhere between 10.0.4 and 10.0.6
